@@ -25,9 +25,10 @@ export default function SignIn() {
     try {
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        // Always land on the dashboard after a successful sign-in,
-        // regardless of which route the user was on when SignIn rendered.
+        if (error) {
+          setError('Invalid email or password.');
+          return;
+        }
         navigate('/', { replace: true });
       } else {
         const { data, error } = await supabase.auth.signUp({
@@ -35,16 +36,18 @@ export default function SignIn() {
           password,
           options: { data: { full_name: fullName } },
         });
-        if (error) throw error;
-        if (data.session) {
-          // Email confirmation disabled — user is logged in immediately.
+        if (error && !/already|registered|exists/i.test(error.message)) {
+          setError(error.message);
+          return;
+        }
+        if (data?.session) {
           navigate('/', { replace: true });
         } else {
           setMessage('Check your email for a confirmation link.');
         }
       }
-    } catch (err) {
-      setError(err.message);
+    } catch {
+      setError('Something went wrong. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -95,7 +98,7 @@ export default function SignIn() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              minLength={6}
+              minLength={12}
             />
           </div>
 
