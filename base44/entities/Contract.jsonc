@@ -1,0 +1,190 @@
+{
+  "name": "Contract",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Contract title/event name"
+    },
+    "artist_name": {
+      "type": "string",
+      "description": "Name of the artist or band"
+    },
+    "artist_email": {
+      "type": "string",
+      "description": "Artist's email address"
+    },
+    "venue_name": {
+      "type": "string",
+      "description": "Name of the venue"
+    },
+    "venue_email": {
+      "type": "string",
+      "description": "Venue's email address"
+    },
+    "venue_address": {
+      "type": "string",
+      "description": "Venue's physical address"
+    },
+    "performance_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the performance"
+    },
+    "load_in_time": {
+      "type": "string",
+      "description": "Time for load-in/soundcheck"
+    },
+    "performance_time": {
+      "type": "string",
+      "description": "Performance start time"
+    },
+    "set_length": {
+      "type": "string",
+      "description": "Length of the set (e.g., '90 minutes')"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Total contract amount"
+    },
+    "deposit_amount": {
+      "type": "number",
+      "description": "Deposit amount required"
+    },
+    "deposit_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When the deposit is due"
+    },
+    "balance_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When the remaining balance is due"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "sent",
+        "received",
+        "signed",
+        "completed",
+        "cancelled",
+        "countered"
+      ],
+      "default": "draft",
+      "description": "Current contract status"
+    },
+    "counter_offer_to": {
+      "type": "string",
+      "description": "ID of the original contract this is a counter offer to"
+    },
+    "technical_requirements": {
+      "type": "string",
+      "description": "Technical rider/requirements"
+    },
+    "hospitality_requirements": {
+      "type": "string",
+      "description": "Hospitality rider requirements"
+    },
+    "additional_terms": {
+      "type": "string",
+      "description": "Any additional terms or notes"
+    },
+    "contract_sections": {
+      "type": "array",
+      "description": "Contract clause sections included in this contract",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artist_signature": {
+      "type": "string",
+      "description": "Artist signature (name)"
+    },
+    "artist_signed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "artist_signed_device": {
+      "type": "string",
+      "description": "Device info used for biometric signing"
+    },
+    "venue_signature": {
+      "type": "string",
+      "description": "Venue signature (name)"
+    },
+    "venue_signed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "venue_signed_device": {
+      "type": "string",
+      "description": "Device info used for biometric signing"
+    },
+    "artist_disputed": {
+      "type": "boolean",
+      "default": false
+    },
+    "artist_dispute_reason": {
+      "type": "string"
+    },
+    "artist_dispute_section": {
+      "type": "string",
+      "description": "Section ID cited in artist's dispute"
+    },
+    "artist_dispute_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "venue_disputed": {
+      "type": "boolean",
+      "default": false
+    },
+    "venue_dispute_reason": {
+      "type": "string"
+    },
+    "venue_dispute_section": {
+      "type": "string",
+      "description": "Section ID cited in venue's dispute"
+    },
+    "venue_dispute_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dispute_window_closes": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ach_transfer_triggered": {
+      "type": "boolean",
+      "default": false
+    },
+    "ach_transfer_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pdf_url": {
+      "type": "string",
+      "description": "URL to the generated PDF version of the contract"
+    }
+  },
+  "required": [
+    "title",
+    "artist_name",
+    "venue_name",
+    "performance_date",
+    "total_amount"
+  ]
+}

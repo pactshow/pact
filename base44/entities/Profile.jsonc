@@ -1,0 +1,147 @@
+{
+  "name": "Profile",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "artist",
+        "venue"
+      ],
+      "description": "Profile type"
+    },
+    "name": {
+      "type": "string",
+      "description": "Artist or venue name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Contact email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "address": {
+      "type": "string",
+      "description": "Physical address"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "zip_code": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string",
+      "description": "Website URL"
+    },
+    "genre": {
+      "type": "string",
+      "description": "Music genre (for artists)"
+    },
+    "capacity": {
+      "type": "number",
+      "description": "Venue capacity (for venues)"
+    },
+    "bio": {
+      "type": "string",
+      "description": "Short biography or description"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Profile image URL"
+    },
+    "standard_rate": {
+      "type": "number",
+      "description": "Standard performance rate"
+    },
+    "tax_id": {
+      "type": "string",
+      "description": "Tax ID or EIN"
+    },
+    "payment_details": {
+      "type": "string",
+      "description": "Legacy payment info notes"
+    },
+    "ach_bank_name": {
+      "type": "string",
+      "description": "Bank name for ACH transfers"
+    },
+    "ach_account_holder": {
+      "type": "string",
+      "description": "Account holder legal name"
+    },
+    "ach_routing_number": {
+      "type": "string",
+      "description": "ABA routing number"
+    },
+    "ach_account_number": {
+      "type": "string",
+      "description": "Bank account number"
+    },
+    "ach_account_type": {
+      "type": "string",
+      "enum": [
+        "checking",
+        "savings"
+      ],
+      "description": "Account type"
+    },
+    "w9_legal_name": {
+      "type": "string",
+      "description": "W9 legal name"
+    },
+    "w9_business_name": {
+      "type": "string",
+      "description": "W9 business/DBA name"
+    },
+    "w9_tax_classification": {
+      "type": "string",
+      "enum": [
+        "individual_sole_proprietor",
+        "c_corporation",
+        "s_corporation",
+        "partnership",
+        "trust_estate",
+        "llc",
+        "other"
+      ],
+      "description": "Federal tax classification"
+    },
+    "w9_address": {
+      "type": "string",
+      "description": "W9 address"
+    },
+    "w9_city_state_zip": {
+      "type": "string",
+      "description": "W9 city, state, ZIP"
+    },
+    "w9_ssn": {
+      "type": "string",
+      "description": "SSN (last 4 digits only for display)"
+    },
+    "w9_ein": {
+      "type": "string",
+      "description": "Employer Identification Number"
+    },
+    "w9_signed": {
+      "type": "boolean",
+      "default": false,
+      "description": "W9 certification signed"
+    },
+    "w9_signed_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date W9 was certified"
+    }
+  },
+  "required": [
+    "type",
+    "name",
+    "email"
+  ]
+}

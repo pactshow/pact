@@ -1,0 +1,48 @@
+{
+  "name": "Connection",
+  "type": "object",
+  "properties": {
+    "requester_profile_id": {
+      "type": "string",
+      "description": "Profile ID of who sent the connection request"
+    },
+    "requester_name": {
+      "type": "string"
+    },
+    "requester_type": {
+      "type": "string",
+      "enum": [
+        "artist",
+        "venue"
+      ]
+    },
+    "recipient_profile_id": {
+      "type": "string",
+      "description": "Profile ID of who received the connection request"
+    },
+    "recipient_name": {
+      "type": "string"
+    },
+    "recipient_type": {
+      "type": "string",
+      "enum": [
+        "artist",
+        "venue"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "requester_profile_id",
+    "recipient_profile_id",
+    "status"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "contract_received",
+        "contract_signed",
+        "contract_cancelled",
+        "dispute_filed",
+        "dispute_window_closed",
+        "ach_initiated",
+        "payment_received",
+        "signature_added"
+      ],
+      "description": "Notification event type"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short notification title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification body text"
+    },
+    "contract_id": {
+      "type": "string",
+      "description": "Related contract ID"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the notification has been read"
+    }
+  },
+  "required": [
+    "type",
+    "title",
+    "message"
+  ]
+}

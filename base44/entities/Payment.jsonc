@@ -1,0 +1,79 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "contract_id": {
+      "type": "string",
+      "description": "Associated contract ID"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "deposit",
+        "balance",
+        "full_payment",
+        "bonus",
+        "other"
+      ],
+      "description": "Type of payment"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Payment amount"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Payment due date"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date payment was made"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "overdue",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "bank_transfer",
+        "check",
+        "cash",
+        "paypal",
+        "venmo",
+        "other"
+      ],
+      "description": "How payment was made"
+    },
+    "reference_number": {
+      "type": "string",
+      "description": "Transaction reference number"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the payment"
+    },
+    "payer_name": {
+      "type": "string",
+      "description": "Name of the person/entity making payment"
+    },
+    "payee_name": {
+      "type": "string",
+      "description": "Name of the person/entity receiving payment"
+    }
+  },
+  "required": [
+    "contract_id",
+    "type",
+    "amount",
+    "status"
+  ]
+}
