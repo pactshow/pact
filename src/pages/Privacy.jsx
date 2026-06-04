@@ -127,7 +127,7 @@ export default function Privacy() {
 
         <H2 id="contact">12. Contact</H2>
         <P>
-          Privacy questions or requests: <a className="text-violet-400 hover:text-violet-300 underline" href="mailto:privacy@pact.show">privacy@pact.show</a>.
+          Privacy questions or requests: <a className="text-violet-400 hover:text-violet-300 underline" href="mailto:hello@pact.show">hello@pact.show</a>.
         </P>
 
         <div className="mt-12 pt-6 border-t border-zinc-800 text-sm text-zinc-500">

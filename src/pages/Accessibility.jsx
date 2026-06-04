@@ -65,7 +65,7 @@ export default function Accessibility() {
           If you have trouble using any part of Pact because of a disability, please contact us. We treat accessibility issues with the same urgency as other bugs and will work with you to find a solution.
         </P>
         <P>
-          Email: <a className="text-violet-400 hover:text-violet-300 underline" href="mailto:accessibility@pact.show">accessibility@pact.show</a>
+          Email: <a className="text-violet-400 hover:text-violet-300 underline" href="mailto:hello@pact.show">hello@pact.show</a>
         </P>
         <P>
           When you contact us, please tell us:
