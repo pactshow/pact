@@ -10,6 +10,8 @@ import { RoleProvider, useMyProfile } from '@/lib/RoleContext';
 import SignIn from '@/pages/SignIn';
 import Onboarding from '@/pages/Onboarding';
 import Terms from '@/pages/Terms';
+import Privacy from '@/pages/Privacy';
+import Accessibility from '@/pages/Accessibility';
 import ErrorBoundary from '@/lib/ErrorBoundary';
 import { Sentry } from '@/lib/sentry';
 
@@ -39,6 +41,8 @@ const AuthenticatedApp = () => {
     return (
       <SentryRoutes>
         <Route path="/Terms" element={<Terms />} />
+        <Route path="/Privacy" element={<Privacy />} />
+        <Route path="/Accessibility" element={<Accessibility />} />
         <Route path="*" element={<Spinner />} />
       </SentryRoutes>
     );
@@ -47,6 +51,8 @@ const AuthenticatedApp = () => {
     return (
       <SentryRoutes>
         <Route path="/Terms" element={<Terms />} />
+        <Route path="/Privacy" element={<Privacy />} />
+        <Route path="/Accessibility" element={<Accessibility />} />
         <Route path="*" element={<SignIn />} />
       </SentryRoutes>
     );
@@ -59,8 +65,10 @@ const AuthenticatedApp = () => {
   if (myProfile && !myProfile.user_side) return <Onboarding />;
 
   return (
-    <Routes>
+    <SentryRoutes>
       <Route path="/Terms" element={<Terms />} />
+      <Route path="/Privacy" element={<Privacy />} />
+      <Route path="/Accessibility" element={<Accessibility />} />
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />
@@ -81,7 +89,7 @@ const AuthenticatedApp = () => {
           redirectToLogin shim or after a sign-in completes), bounce them home. */}
       <Route path="/SignIn" element={<Navigate to="/" replace />} />
       <Route path="*" element={<PageNotFound />} />
-    </Routes>
+    </SentryRoutes>
   );
 };
 

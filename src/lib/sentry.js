@@ -13,9 +13,10 @@ if (dsn) {
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
-    // IP + user-agent on events — helps debug "only fails on Safari iOS"
-    // type bugs. Revisit before launch if you want stricter PII handling.
-    sendDefaultPii: true,
+    // No PII on events — keeps our Privacy Policy claim honest that
+    // error telemetry is not tied to identifying information. Disables
+    // automatic IP + user-agent capture by Sentry.
+    sendDefaultPii: false,
     integrations: [
       Sentry.reactRouterV6BrowserTracingIntegration({
         useEffect,

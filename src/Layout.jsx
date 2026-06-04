@@ -41,9 +41,9 @@ function buildNavItems(userSide, isGuest) {
   const items = [
     { name: "Dashboard", page: "Dashboard", icon: LayoutDashboard },
     { name: "Contracts", page: "Contracts", icon: FileText },
-    { name: foldersLabel, page: "Folders", icon: FolderOpen },
-    { name: "Templates", page: "Templates", icon: Sparkles },
-    { name: "My Clauses", page: "MyClauses", icon: BookOpen },
+    { name: foldersLabel, page: "Folders", icon: FolderOpen, pro: true },
+    { name: "Templates", page: "Templates", icon: Sparkles, pro: true },
+    { name: "My Clauses", page: "MyClauses", icon: BookOpen, pro: true },
     { name: "Payments", page: "Payments", icon: DollarSign },
     { name: "Network", page: "Network", icon: Network },
     { name: "Payment Records", page: "VenuePaymentRecords", icon: Building2 },
@@ -62,12 +62,20 @@ const adminNavItems = [
 export default function Layout({ children, currentPageName }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { myProfile } = useMyProfile();
-  const { isGuest } = useSubscriptionAccess();
+  const { isGuest, isPro } = useSubscriptionAccess();
   const isAdmin = Boolean(myProfile?.is_admin);
   const navItems = buildNavItems(myProfile?.user_side, isGuest);
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-zinc-950 flex flex-col">
+      {/* Skip-to-content for keyboard / screen-reader users. Hidden
+          until focused so it doesn't visually clutter the layout. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-violet-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:outline-none focus:ring-2 focus:ring-violet-400"
+      >
+        Skip to main content
+      </a>
       <GuestArtistBankPrompt />
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
@@ -90,7 +98,7 @@ export default function Layout({ children, currentPageName }) {
                   <li key={item.name}>
                     <Link
                       to={createPageUrl(item.page)}
-                      className={`group flex gap-x-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      className={`group flex items-center gap-x-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                         isActive
                           ? "bg-violet-600 text-white"
                           : "text-zinc-400 hover:text-white hover:bg-zinc-800"
@@ -98,6 +106,11 @@ export default function Layout({ children, currentPageName }) {
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
                       {item.name}
+                      {item.pro && !isPro && (
+                        <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30">
+                          Pro
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -204,7 +217,7 @@ export default function Layout({ children, currentPageName }) {
                         <Link
                           to={createPageUrl(item.page)}
                           onClick={() => setMobileMenuOpen(false)}
-                          className={`group flex gap-x-3 rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                          className={`group flex items-center gap-x-3 rounded-xl px-3 py-3 text-sm font-medium transition-all ${
                             isActive
                               ? "bg-violet-600 text-white"
                               : "text-zinc-400 hover:text-white hover:bg-zinc-800"
@@ -212,6 +225,11 @@ export default function Layout({ children, currentPageName }) {
                         >
                           <item.icon className="h-5 w-5 shrink-0" />
                           {item.name}
+                          {item.pro && !isPro && (
+                            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30">
+                              Pro
+                            </span>
+                          )}
                         </Link>
                       </li>
                     );
@@ -250,9 +268,21 @@ export default function Layout({ children, currentPageName }) {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="lg:pl-64">
+      <main id="main-content" className="lg:pl-64 flex-1">
         {children}
       </main>
+
+      {/* Footer with legal links — present on every authenticated page */}
+      <footer className="lg:pl-64 border-t border-zinc-800 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-zinc-500">
+          <p>&copy; {new Date().getFullYear()} Pact.</p>
+          <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-1">
+            <Link to="/Terms" className="hover:text-zinc-300">Terms</Link>
+            <Link to="/Privacy" className="hover:text-zinc-300">Privacy</Link>
+            <Link to="/Accessibility" className="hover:text-zinc-300">Accessibility</Link>
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 }
