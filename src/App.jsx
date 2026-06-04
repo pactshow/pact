@@ -11,6 +11,11 @@ import SignIn from '@/pages/SignIn';
 import Onboarding from '@/pages/Onboarding';
 import Terms from '@/pages/Terms';
 import ErrorBoundary from '@/lib/ErrorBoundary';
+import { Sentry } from '@/lib/sentry';
+
+// Wraps Routes so Sentry traces report by route pattern (e.g.
+// "/ContractDetail") instead of raw URLs with query strings.
+const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Routes);
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -32,18 +37,18 @@ const AuthenticatedApp = () => {
 
   if (isLoadingAuth) {
     return (
-      <Routes>
+      <SentryRoutes>
         <Route path="/Terms" element={<Terms />} />
         <Route path="*" element={<Spinner />} />
-      </Routes>
+      </SentryRoutes>
     );
   }
   if (!isAuthenticated) {
     return (
-      <Routes>
+      <SentryRoutes>
         <Route path="/Terms" element={<Terms />} />
         <Route path="*" element={<SignIn />} />
-      </Routes>
+      </SentryRoutes>
     );
   }
   if (isLoadingProfile) return <Spinner />;
