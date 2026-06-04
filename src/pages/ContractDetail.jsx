@@ -53,6 +53,8 @@ import PaymentDialog from "@/components/payments/PaymentDialog";
 import BankSetupFlow from "@/components/payments/BankSetupFlow";
 import UploadedContractCard from "@/components/contracts/UploadedContractCard";
 import ContractAISummary from "@/components/contracts/ContractAISummary";
+import ContractDetailSkeleton from "@/components/contracts/ContractDetailSkeleton";
+import { QueryErrorCard } from "@/lib/QueryState";
 import { useMyProfile } from "@/lib/RoleContext";
 import { useSubscriptionAccess } from "@/lib/useSubscriptionAccess";
 import { feeBreakdown, formatUSD, feePayerLabel, PACT_FEE_BPS } from "@/lib/feeMath";
@@ -147,16 +149,18 @@ export default function ContractDetail() {
     }
   }, [queryClient]);
 
-  const { data: contracts = [] } = useQuery({
+  const contractsQuery = useQuery({
     queryKey: ['contracts'],
     queryFn: () => base44.entities.Contract.list(),
   });
 
-  const { data: payments = [] } = useQuery({
+  const paymentsQuery = useQuery({
     queryKey: ['payments'],
     queryFn: () => base44.entities.Payment.list(),
   });
 
+  const contracts = contractsQuery.data ?? [];
+  const payments = paymentsQuery.data ?? [];
   const contract = contracts.find(c => c.id === contractId);
   const contractPayments = payments.filter(p => p.contract_id === contractId);
 
@@ -238,10 +242,44 @@ export default function ContractDetail() {
     await updateMutation.mutateAsync(updateData);
   };
 
+  if (contractsQuery.isLoading) {
+    return <ContractDetailSkeleton />;
+  }
+
+  if (contractsQuery.isError) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <Link
+            to={createPageUrl("Contracts")}
+            className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Contracts
+          </Link>
+          <QueryErrorCard
+            onRetry={() => contractsQuery.refetch()}
+            isRetrying={contractsQuery.isFetching}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (!contract) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center px-4">
+        <div className="text-center">
+          <FileText className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Contract not found</h2>
+          <p className="text-zinc-400 mb-6">
+            This contract may have been deleted or you don't have access.
+          </p>
+          <Link to={createPageUrl("Contracts")}>
+            <Button variant="outline" className="border-zinc-700 text-zinc-300">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Contracts
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

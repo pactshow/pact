@@ -12,6 +12,8 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useSubscriptionAccess } from '@/lib/useSubscriptionAccess';
 import ProUpgradeScreen from '@/components/account/ProUpgradeScreen';
+import { Skeleton } from '@/components/ui/skeleton';
+import { QueryErrorCard } from '@/lib/QueryState';
 
 export default function TaxReports() {
   const access = useSubscriptionAccess();
@@ -33,10 +35,11 @@ function TaxReportsInner() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
 
-  const { data, isLoading, isError, error } = useQuery({
+  const reportQuery = useQuery({
     queryKey: ['tax-report', year],
     queryFn: () => base44.functions.invoke('getTaxReport', { year }),
   });
+  const { data, isLoading, isError, isFetching } = reportQuery;
 
   const yearOptions = useMemo(() => {
     // Cover the next year (for late filings) and the past 6 calendar
@@ -125,16 +128,13 @@ function TaxReportsInner() {
           </div>
         </div>
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-          </div>
-        )}
+        {isLoading && <TaxReportSkeleton />}
 
         {isError && (
-          <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 px-4 py-3 text-rose-200 text-sm">
-            {(error)?.message || 'Failed to load tax report.'}
-          </div>
+          <QueryErrorCard
+            onRetry={() => reportQuery.refetch()}
+            isRetrying={isFetching}
+          />
         )}
 
         {!isLoading && !isError && totals && (
@@ -322,4 +322,36 @@ function csvCell(v) {
   const s = String(v);
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
+}
+
+function TaxReportSkeleton() {
+  return (
+    <div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-5">
+            <Skeleton className="h-3 w-32 bg-zinc-800 mb-3" />
+            <Skeleton className="h-8 w-28 bg-zinc-800" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-zinc-800 overflow-hidden">
+        <div className="bg-zinc-900/70 px-4 py-3">
+          <Skeleton className="h-3 w-32 bg-zinc-800" />
+        </div>
+        <div className="divide-y divide-zinc-800/50">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-4">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-44 bg-zinc-800" />
+                <Skeleton className="h-3 w-32 bg-zinc-800" />
+              </div>
+              <Skeleton className="h-5 w-28 bg-zinc-800 rounded" />
+              <Skeleton className="h-4 w-20 bg-zinc-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }

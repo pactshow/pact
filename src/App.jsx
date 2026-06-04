@@ -9,6 +9,8 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { RoleProvider, useMyProfile } from '@/lib/RoleContext';
 import SignIn from '@/pages/SignIn';
 import Onboarding from '@/pages/Onboarding';
+import Terms from '@/pages/Terms';
+import ErrorBoundary from '@/lib/ErrorBoundary';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -28,8 +30,22 @@ const AuthenticatedApp = () => {
   const { isAuthenticated, isLoadingAuth } = useAuth();
   const { myProfile, isLoadingProfile } = useMyProfile();
 
-  if (isLoadingAuth) return <Spinner />;
-  if (!isAuthenticated) return <SignIn />;
+  if (isLoadingAuth) {
+    return (
+      <Routes>
+        <Route path="/Terms" element={<Terms />} />
+        <Route path="*" element={<Spinner />} />
+      </Routes>
+    );
+  }
+  if (!isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="/Terms" element={<Terms />} />
+        <Route path="*" element={<SignIn />} />
+      </Routes>
+    );
+  }
   if (isLoadingProfile) return <Spinner />;
 
   // New users land in onboarding until they pick a side (artist/promoter)
@@ -39,6 +55,7 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      <Route path="/Terms" element={<Terms />} />
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />
@@ -65,17 +82,19 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <RoleProvider>
-          <Router>
-            <NavigationTracker />
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
-        </RoleProvider>
-      </QueryClientProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <RoleProvider>
+            <Router>
+              <NavigationTracker />
+              <AuthenticatedApp />
+            </Router>
+            <Toaster />
+          </RoleProvider>
+        </QueryClientProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 

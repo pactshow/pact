@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -15,16 +15,12 @@ import {
 } from "lucide-react";
 import ConnectOnboardingDialog from "@/components/payments/ConnectOnboardingDialog";
 import SubscriptionCard from "@/components/account/SubscriptionCard";
+import useFormDraft from "@/lib/useFormDraft";
+import DraftRestoredBanner from "@/components/DraftRestoredBanner";
 
 export default function Profiles() {
-  const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [saving, setSaving] = useState(false);
-  const [connectLoading, setConnectLoading] = useState(false);
-  const [connectDialogOpen, setConnectDialogOpen] = useState(false);
-  const [formData, setFormData] = useState(null);
 
-  // Load the single profile for the current user (unique per user).
   const { data: profile, isLoading } = useQuery({
     queryKey: ['my-profile', user?.id],
     queryFn: async () => {
@@ -34,9 +30,25 @@ export default function Profiles() {
     enabled: !!user?.id,
   });
 
-  useEffect(() => {
-    if (profile) setFormData({ ...profile });
-  }, [profile]);
+  if (isLoading || !profile) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+      </div>
+    );
+  }
+
+  return <ProfilesContent key={profile.id} profile={profile} />;
+}
+
+function ProfilesContent({ profile }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectDialogOpen, setConnectDialogOpen] = useState(false);
+
+  const [formData, setFormData, { restoredFromDraft, clearDraft, discardDraft }] =
+    useFormDraft(`profile:${profile.id}`, profile);
 
   const updateProfile = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Profile.update(id, data),
@@ -49,8 +61,15 @@ export default function Profiles() {
     const { id, user_id, created_at, updated_at, stripe_customer_id,
       stripe_connect_account_id, stripe_onboarding_complete,
       ...payload } = formData;
-    await updateProfile.mutateAsync({ id: profile.id, data: payload });
-    setSaving(false);
+    try {
+      await updateProfile.mutateAsync({ id: profile.id, data: payload });
+      clearDraft();
+    } catch (err) {
+      console.error('Profile save failed:', err);
+      alert(`Could not save profile: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleConnectStripe = () => {
@@ -84,14 +103,6 @@ export default function Profiles() {
     }
   };
 
-  if (isLoading || !formData) {
-    return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-      </div>
-    );
-  }
-
   const onboardingComplete = !!formData.stripe_onboarding_complete;
   const hasConnectAccount = !!formData.stripe_connect_account_id;
 
@@ -108,6 +119,10 @@ export default function Profiles() {
             This is how other people on Pact. will see you when you send or receive contracts.
           </p>
         </motion.div>
+
+        {restoredFromDraft && (
+          <DraftRestoredBanner onDiscard={() => discardDraft(profile)} />
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

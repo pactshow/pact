@@ -7,12 +7,14 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   FileText,
 } from "lucide-react";
 import ContractCard from "@/components/dashboard/ContractCard";
+import { ContractCardSkeletonList } from "@/components/dashboard/ContractCardSkeleton";
+import QueryState from "@/lib/QueryState";
 
 export default function Contracts() {
   const [search, setSearch] = useState("");
@@ -26,12 +28,13 @@ export default function Contracts() {
   };
   const [statusFilter, setStatusFilter] = useState(initialStatus);
 
-  const { data: contracts = [], isLoading } = useQuery({
+  const contractsQuery = useQuery({
     queryKey: ['contracts'],
     queryFn: () => base44.entities.Contract.list('-created_date'),
   });
+  const contracts = contractsQuery.data ?? [];
 
-  const filteredContracts = contracts.filter(contract => {
+  const filterContracts = (list) => list.filter(contract => {
     const matchesSearch =
       contract.title?.toLowerCase().includes(search.toLowerCase()) ||
       contract.contractor_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,7 +56,11 @@ export default function Contracts() {
         >
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Contracts</h1>
-            <p className="mt-1 text-zinc-400">{contracts.length} total contracts</p>
+            <p className="mt-1 text-zinc-400">
+              {contractsQuery.isLoading
+                ? "Loading..."
+                : `${contracts.length} total contracts`}
+            </p>
           </div>
           <Link to={createPageUrl("ContractForm")}>
             <Button className="bg-violet-600 hover:bg-violet-700 text-white gap-2 rounded-xl h-11 px-5">
@@ -105,37 +112,55 @@ export default function Contracts() {
         </motion.div>
 
         {/* Contract List */}
-        {filteredContracts.length > 0 ? (
-          <div className="space-y-3">
-            {filteredContracts.map((contract, i) => (
-              <ContractCard key={contract.id} contract={contract} index={i} />
-            ))}
-          </div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-12 text-center"
-          >
-            <FileText className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">
-              {search || statusFilter !== "all" ? "No contracts found" : "No contracts yet"}
-            </h3>
-            <p className="text-zinc-400 mb-4">
-              {search || statusFilter !== "all" 
-                ? "Try adjusting your search or filters"
-                : "Create your first contract to get started"}
-            </p>
-            {!search && statusFilter === "all" && (
+        <QueryState
+          query={contractsQuery}
+          skeleton={<ContractCardSkeletonList count={4} />}
+          empty={
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-12 text-center"
+            >
+              <FileText className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No contracts yet</h3>
+              <p className="text-zinc-400 mb-4">
+                Create your first contract to get started
+              </p>
               <Link to={createPageUrl("ContractForm")}>
                 <Button className="bg-violet-600 hover:bg-violet-700 text-white gap-2 rounded-xl">
                   <Plus className="w-4 h-4" />
                   Create Contract
                 </Button>
               </Link>
-            )}
-          </motion.div>
-        )}
+            </motion.div>
+          }
+        >
+          {(allContracts) => {
+            const filteredContracts = filterContracts(allContracts);
+            if (filteredContracts.length === 0) {
+              return (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-12 text-center"
+                >
+                  <FileText className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-white mb-2">No contracts found</h3>
+                  <p className="text-zinc-400 mb-4">
+                    Try adjusting your search or filters
+                  </p>
+                </motion.div>
+              );
+            }
+            return (
+              <div className="space-y-3">
+                {filteredContracts.map((contract, i) => (
+                  <ContractCard key={contract.id} contract={contract} index={i} />
+                ))}
+              </div>
+            );
+          }}
+        </QueryState>
       </div>
     </div>
   );

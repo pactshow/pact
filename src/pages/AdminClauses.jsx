@@ -19,6 +19,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Loader2, ShieldCheck, BookOpen, Save, Variable, ChevronDown, ChevronUp } from "lucide-react";
 import { extractTemplateKeys, substituteTemplate } from "@/lib/utils";
+import useFormDraft from "@/lib/useFormDraft";
+import DraftRestoredBanner from "@/components/DraftRestoredBanner";
+import ClauseListSkeleton from "@/components/contracts/ClauseListSkeleton";
+import { QueryErrorCard } from "@/lib/QueryState";
+
+const EMPTY_CLAUSE = { title: '', category: '', content: '', sort_order: 0, is_active: true, slug: '', variables: [] };
 
 const slugify = (s) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 64);
@@ -36,7 +42,7 @@ export default function AdminClauses() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [expanded, setExpanded] = useState({}); // { [id]: true } — preview visible
 
-  const { data: clauses = [], isLoading } = useQuery({
+  const clausesQuery = useQuery({
     queryKey: ['admin-clause-library'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -102,6 +108,7 @@ export default function AdminClauses() {
     return <Navigate to="/" replace />;
   }
 
+  const clauses = clausesQuery.data ?? [];
   const grouped = clauses.reduce((acc, c) => {
     (acc[c.category] = acc[c.category] || []).push(c);
     return acc;
@@ -137,10 +144,13 @@ export default function AdminClauses() {
           </Button>
         </motion.div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-          </div>
+        {clausesQuery.isLoading ? (
+          <ClauseListSkeleton />
+        ) : clausesQuery.isError ? (
+          <QueryErrorCard
+            onRetry={() => clausesQuery.refetch()}
+            isRetrying={clausesQuery.isFetching}
+          />
         ) : (
           <div className="space-y-6">
             {Object.entries(grouped).map(([category, items]) => (
@@ -211,13 +221,16 @@ export default function AdminClauses() {
         )}
       </div>
 
-      <ClauseEditor
-        clause={editing}
-        onClose={() => setEditing(null)}
-        onSave={(c) => upsertMutation.mutate(c)}
-        saving={upsertMutation.isPending}
-        error={upsertMutation.error?.message}
-      />
+      {editing && (
+        <ClauseEditor
+          key={editing === 'new' ? 'new' : editing.id}
+          clause={editing}
+          onClose={() => setEditing(null)}
+          onSave={(c) => upsertMutation.mutateAsync(c)}
+          saving={upsertMutation.isPending}
+          error={upsertMutation.error?.message}
+        />
+      )}
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-white">
@@ -245,17 +258,23 @@ export default function AdminClauses() {
 
 function ClauseEditor({ clause, onClose, onSave, saving, error }) {
   const isNew = clause === 'new';
-  const [draft, setDraft] = useState(null);
+  const draftKey = isNew ? 'clause:admin:new' : `clause:admin:edit:${clause.id}`;
+  const initialClause = isNew
+    ? EMPTY_CLAUSE
+    : { ...clause, variables: Array.isArray(clause.variables) ? clause.variables : [] };
 
-  // Initialise draft when the dialog opens with a different clause
-  if (clause && draft === null) {
-    setDraft(isNew
-      ? { title: '', category: '', content: '', sort_order: 0, is_active: true, slug: '', variables: [] }
-      : { ...clause, variables: Array.isArray(clause.variables) ? clause.variables : [] }
-    );
-  }
-  if (!clause && draft !== null) setDraft(null);
-  if (!clause || !draft) return null;
+  const [draft, setDraft, { restoredFromDraft, clearDraft, discardDraft }] =
+    useFormDraft(draftKey, initialClause);
+
+  const handleSave = async () => {
+    try {
+      await onSave(draft);
+      clearDraft();
+    } catch {
+      // Mutation surfaces the error; keep the draft so the user
+      // doesn't lose what they typed.
+    }
+  };
 
   const placeholderKeys = extractTemplateKeys(draft.content);
   const variableKeys = new Set((draft.variables ?? []).map(v => v.key));
@@ -300,6 +319,9 @@ function ClauseEditor({ clause, onClose, onSave, saving, error }) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {restoredFromDraft && (
+            <DraftRestoredBanner onDiscard={() => discardDraft(initialClause)} />
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-zinc-300 text-sm">Title</Label>
@@ -473,7 +495,7 @@ function ClauseEditor({ clause, onClose, onSave, saving, error }) {
             Cancel
           </Button>
           <Button
-            onClick={() => onSave(draft)}
+            onClick={handleSave}
             disabled={!canSave}
             className="bg-violet-600 hover:bg-violet-500 text-white gap-2"
           >

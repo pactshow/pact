@@ -16,6 +16,40 @@ import { useSubscriptionAccess } from "@/lib/useSubscriptionAccess";
 import PaywallScreen from "@/components/account/PaywallScreen";
 import { useFolderLabel } from "@/lib/useFolderLabel";
 import { FolderOpen } from "lucide-react";
+import useFormDraft from "@/lib/useFormDraft";
+import DraftRestoredBanner from "@/components/DraftRestoredBanner";
+
+const DEFAULT_CONTRACT = {
+  status: 'draft',
+  title: '',
+  contractor_name: '',
+  contractor_email: '',
+  client_name: '',
+  client_email: '',
+  client_address: '',
+  performance_date: '',
+  performance_end_date: '',
+  load_in_time: '',
+  performance_time: '',
+  set_length: '',
+  total_amount: null,
+  deposit_amount: null,
+  deposit_due_date: '',
+  balance_due_date: '',
+  technical_requirements: '',
+  hospitality_requirements: '',
+  additional_terms: '',
+  source: 'generated',
+  uploaded_file_path: null,
+  uploaded_file_name: null,
+  event_group_id: null,
+};
+
+function buildDraftKey({ id, counterTo }) {
+  if (id) return `contract:edit:${id}`;
+  if (counterTo) return `contract:counter:${counterTo}`;
+  return 'contract:new';
+}
 
 // Outer wrapper handles the paywall gate so hooks in the inner form
 // component never get conditionally skipped (Rules of Hooks).
@@ -44,31 +78,18 @@ function ContractFormInner() {
   const navigate = useNavigate();
   const { isPro } = useSubscriptionAccess();
   const [lockedFields, setLockedFields] = useState({});
-  const [contract, setContract] = useState({
-    status: 'draft',
-    title: '',
-    contractor_name: '',
-    contractor_email: '',
-    client_name: '',
-    client_email: '',
-    client_address: '',
-    performance_date: '',
-    performance_end_date: '',
-    load_in_time: '',
-    performance_time: '',
-    set_length: '',
-    total_amount: null,
-    deposit_amount: null,
-    deposit_due_date: '',
-    balance_due_date: '',
-    technical_requirements: '',
-    hospitality_requirements: '',
-    additional_terms: '',
-    source: 'generated',
-    uploaded_file_path: null,
-    uploaded_file_name: null,
-    event_group_id: null,
+
+  // Read URL params once on first render so the draft key is stable
+  // for the lifetime of this mount.
+  const [urlIds] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return { id: p.get('id'), counterTo: p.get('counter_to') };
   });
+  const draftKey = buildDraftKey(urlIds);
+
+  const [contract, setContract, { restoredFromDraft, clearDraft, discardDraft }] =
+    useFormDraft(draftKey, DEFAULT_CONTRACT);
+
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState(null);
   const [templateId, setTemplateId] = useState(null);
@@ -95,6 +116,16 @@ function ContractFormInner() {
     const template = params.get('template');
     const counterTo = params.get('counter_to');
     const eventGroupId = params.get('event_group_id');
+
+    // Always track these so the header label + save path are correct,
+    // even when a draft was restored.
+    if (id) setEditId(id);
+    if (counterTo) setCounterToId(counterTo);
+    if (template) setTemplateId(template);
+
+    // If a draft was restored, skip every form-populating side-effect —
+    // the user's in-progress edits already won.
+    if (restoredFromDraft) return;
 
     // Pre-fill from the folder when creating inside one — pull dates +
     // venue. Leave any field the user has already typed alone (this
@@ -123,13 +154,10 @@ function ContractFormInner() {
     }
 
     if (id) {
-      setEditId(id);
       loadContract(id);
     } else if (counterTo) {
-      setCounterToId(counterTo);
       loadCounterContract(counterTo);
     } else if (template) {
-      setTemplateId(template);
       loadTemplate(template);
     }
 
@@ -344,6 +372,7 @@ function ContractFormInner() {
           });
         }
       }
+      clearDraft();
       navigate(createPageUrl("Contracts"));
     } catch (err) {
       console.error('Contract save failed:', err);
@@ -376,6 +405,15 @@ function ContractFormInner() {
             {editId ? 'Update the contract details below' : counterToId ? 'Propose updated terms as a counter offer' : 'Fill in the details to create a new performance contract'}
           </p>
         </motion.div>
+
+        {restoredFromDraft && (
+          <DraftRestoredBanner
+            onDiscard={() => {
+              discardDraft(DEFAULT_CONTRACT);
+              window.location.reload();
+            }}
+          />
+        )}
 
         {/* Template Selector */}
         {!editId && templates.length > 0 && (

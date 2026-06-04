@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import useFormDraft from '@/lib/useFormDraft';
+import DraftRestoredBanner from '@/components/DraftRestoredBanner';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -24,6 +26,8 @@ import { useSubscriptionAccess } from '@/lib/useSubscriptionAccess';
 import { useFolderLabel } from '@/lib/useFolderLabel';
 import ProUpgradeScreen from '@/components/account/ProUpgradeScreen';
 import { createPageUrl } from '@/utils';
+import QueryState, { QueryErrorCard } from '@/lib/QueryState';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Folders() {
   const access = useSubscriptionAccess();
@@ -54,7 +58,7 @@ function FoldersList() {
   const label = useFolderLabel();
   const [dialog, setDialog] = useState({ open: false, folder: null });
 
-  const { data: folders = [], isLoading } = useQuery({
+  const foldersQuery = useQuery({
     queryKey: ['event-groups', myProfile?.id],
     queryFn: () => base44.entities.EventGroup.list('-created_date'),
     enabled: !!myProfile?.id,
@@ -78,44 +82,102 @@ function FoldersList() {
           </Button>
         </div>
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-          </div>
-        )}
-
-        {!isLoading && folders.length === 0 && (
-          <div className="rounded-2xl bg-zinc-900/40 border border-zinc-800 p-12 text-center">
-            <Folder className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-            <p className="text-lg font-semibold mb-1">No {label.plural.toLowerCase()} yet</p>
-            <p className="text-zinc-400 text-sm mb-5">
-              Create your first {label.lowerSingular} to organize related contracts.
-            </p>
-            <Button
-              onClick={() => setDialog({ open: true, folder: null })}
-              className="bg-violet-600 hover:bg-violet-500 text-white rounded-xl gap-2"
-            >
-              <Plus className="w-4 h-4" /> New {label.lowerSingular}
-            </Button>
-          </div>
-        )}
-
-        {!isLoading && folders.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {folders.map((f) => (
-              <FolderCard key={f.id} folder={f} />
-            ))}
-          </div>
-        )}
+        <QueryState
+          query={foldersQuery}
+          skeleton={<FolderCardSkeletonGrid count={3} />}
+          empty={
+            <div className="rounded-2xl bg-zinc-900/40 border border-zinc-800 p-12 text-center">
+              <Folder className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+              <p className="text-lg font-semibold mb-1">No {label.plural.toLowerCase()} yet</p>
+              <p className="text-zinc-400 text-sm mb-5">
+                Create your first {label.lowerSingular} to organize related contracts.
+              </p>
+              <Button
+                onClick={() => setDialog({ open: true, folder: null })}
+                className="bg-violet-600 hover:bg-violet-500 text-white rounded-xl gap-2"
+              >
+                <Plus className="w-4 h-4" /> New {label.lowerSingular}
+              </Button>
+            </div>
+          }
+        >
+          {(folders) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {folders.map((f) => (
+                <FolderCard key={f.id} folder={f} />
+              ))}
+            </div>
+          )}
+        </QueryState>
       </div>
 
-      <FolderFormDialog
-        open={dialog.open}
-        onOpenChange={(o) => setDialog({ open: o, folder: o ? dialog.folder : null })}
-        folder={dialog.folder}
-        profileId={myProfile?.id}
-        label={label}
-      />
+      {dialog.open && (
+        <FolderFormDialog
+          key={dialog.folder?.id ?? 'new'}
+          folder={dialog.folder}
+          profileId={myProfile?.id}
+          label={label}
+          onClose={() => setDialog({ open: false, folder: null })}
+        />
+      )}
+    </div>
+  );
+}
+
+function FolderCardSkeleton() {
+  return (
+    <div className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-5">
+      <div className="flex items-start gap-3 mb-3">
+        <Skeleton className="h-9 w-9 bg-zinc-800 rounded-lg shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-40 bg-zinc-800" />
+          <Skeleton className="h-3 w-32 bg-zinc-800" />
+        </div>
+      </div>
+      <Skeleton className="h-3 w-24 bg-zinc-800" />
+    </div>
+  );
+}
+
+function FolderCardSkeletonGrid({ count = 3 }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <FolderCardSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+function FolderDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <Skeleton className="h-4 w-40 bg-zinc-800 mb-6" />
+        <div className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-6 mb-6">
+          <div className="flex items-start gap-3 mb-4">
+            <Skeleton className="h-10 w-10 bg-zinc-800 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-7 w-64 bg-zinc-800" />
+              <Skeleton className="h-4 w-44 bg-zinc-800" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-zinc-900/40 border border-zinc-800 p-5">
+          <Skeleton className="h-5 w-48 bg-zinc-800 mb-4" />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl bg-zinc-900/50 border border-zinc-800 p-4">
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-44 bg-zinc-800" />
+                  <Skeleton className="h-3 w-32 bg-zinc-800" />
+                </div>
+                <Skeleton className="h-5 w-16 bg-zinc-800 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -163,11 +225,13 @@ function FolderDetail({ id }) {
   const [confirmBulkSend, setConfirmBulkSend] = useState(false);
   const [bulkSending, setBulkSending] = useState(false);
 
-  const { data: folder, isLoading } = useQuery({
+  const folderQuery = useQuery({
     queryKey: ['event-group', id],
     queryFn: () => base44.entities.EventGroup.get(id),
     enabled: !!id,
   });
+  const folder = folderQuery.data;
+  const isLoading = folderQuery.isLoading;
 
   const { data: contracts = [], isLoading: contractsLoading } = useQuery({
     queryKey: ['event-group-contracts', id],
@@ -214,10 +278,20 @@ function FolderDetail({ id }) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading) return <FolderDetailSkeleton />;
+
+  if (folderQuery.isError) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Link to={createPageUrl('Folders')} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-6">
+            <ArrowLeft className="w-4 h-4" /> All {label.plural.toLowerCase()}
+          </Link>
+          <QueryErrorCard
+            onRetry={() => folderQuery.refetch()}
+            isRetrying={folderQuery.isFetching}
+          />
+        </div>
       </div>
     );
   }
@@ -342,13 +416,15 @@ function FolderDetail({ id }) {
         </div>
       </div>
 
-      <FolderFormDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        folder={folder}
-        profileId={myProfile?.id}
-        label={label}
-      />
+      {editOpen && (
+        <FolderFormDialog
+          key={folder.id}
+          folder={folder}
+          profileId={myProfile?.id}
+          label={label}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
 
       <AlertDialog open={confirmBulkSend} onOpenChange={setConfirmBulkSend}>
         <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-white">
@@ -400,20 +476,16 @@ function FolderDetail({ id }) {
 
 // ----------------------- CREATE / EDIT DIALOG -----------------------
 
-function FolderFormDialog({ open, onOpenChange, folder, profileId, label }) {
+function FolderFormDialog({ folder, profileId, label, onClose }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState(() => initialForm(folder));
+  const isEdit = !!folder?.id;
+  const draftKey = isEdit ? `folder:edit:${folder.id}` : 'folder:new';
+  const initial = initialForm(folder);
+
+  const [form, setForm, { restoredFromDraft, clearDraft, discardDraft }] =
+    useFormDraft(draftKey, initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (open) {
-      setForm(initialForm(folder));
-      setError(null);
-    }
-  }, [open, folder]);
-
-  const isEdit = !!folder?.id;
 
   const handleSave = async () => {
     if (!form.name.trim() || !profileId) return;
@@ -439,7 +511,8 @@ function FolderFormDialog({ open, onOpenChange, folder, profileId, label }) {
       }
       queryClient.invalidateQueries({ queryKey: ['event-groups'] });
       if (isEdit) queryClient.invalidateQueries({ queryKey: ['event-group', folder.id] });
-      onOpenChange(false);
+      clearDraft();
+      onClose();
     } catch (err) {
       setError(err.message || 'Failed to save');
     } finally {
@@ -448,7 +521,7 @@ function FolderFormDialog({ open, onOpenChange, folder, profileId, label }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? `Edit ${label.lowerSingular}` : `New ${label.lowerSingular}`}</DialogTitle>
@@ -458,6 +531,9 @@ function FolderFormDialog({ open, onOpenChange, folder, profileId, label }) {
         </DialogHeader>
 
         <div className="space-y-3 py-2">
+          {restoredFromDraft && (
+            <DraftRestoredBanner onDiscard={() => discardDraft(initial)} />
+          )}
           <div>
             <Label className="text-zinc-300">{label.singular} name</Label>
             <Input
@@ -513,7 +589,7 @@ function FolderFormDialog({ open, onOpenChange, folder, profileId, label }) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-zinc-700 text-zinc-300">
+          <Button variant="outline" onClick={onClose} className="border-zinc-700 text-zinc-300">
             Cancel
           </Button>
           <Button

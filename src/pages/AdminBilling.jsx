@@ -13,6 +13,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Pencil, Loader2, ShieldCheck, Save, DollarSign, Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorCard } from "@/lib/QueryState";
 
 const PACT_FEE_BPS = 200;
 
@@ -22,7 +24,7 @@ export default function AdminBilling() {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
 
-  const { data: rows = [], isLoading } = useQuery({
+  const rowsQuery = useQuery({
     queryKey: ['admin-billing'],
     queryFn: async () => {
       // Pull subs + the profile they belong to. Admin RLS lets us see
@@ -70,6 +72,7 @@ export default function AdminBilling() {
   }
   if (!myProfile?.is_admin) return <Navigate to="/" replace />;
 
+  const rows = rowsQuery.data ?? [];
   const q = search.trim().toLowerCase();
   const filtered = !q
     ? rows
@@ -111,10 +114,13 @@ export default function AdminBilling() {
           />
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-          </div>
+        {rowsQuery.isLoading ? (
+          <BillingTableSkeleton />
+        ) : rowsQuery.isError ? (
+          <QueryErrorCard
+            onRetry={() => rowsQuery.refetch()}
+            isRetrying={rowsQuery.isFetching}
+          />
         ) : filtered.length === 0 ? (
           <p className="text-center text-zinc-500 py-12">
             {q ? 'No matches.' : 'No subscriptions yet.'}
@@ -290,5 +296,29 @@ function BillingEditor({ sub, onClose, onSave, saving, error }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function BillingTableSkeleton({ rows = 5 }) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 overflow-hidden">
+      <div className="bg-zinc-900/70 px-4 py-3">
+        <Skeleton className="h-3 w-32 bg-zinc-800" />
+      </div>
+      <div className="divide-y divide-zinc-800/50">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-4">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-40 bg-zinc-800" />
+              <Skeleton className="h-3 w-56 bg-zinc-800" />
+            </div>
+            <Skeleton className="h-5 w-24 bg-zinc-800 rounded-full" />
+            <Skeleton className="h-4 w-16 bg-zinc-800" />
+            <Skeleton className="h-4 w-32 bg-zinc-800" />
+            <Skeleton className="h-8 w-8 bg-zinc-800 rounded-md" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

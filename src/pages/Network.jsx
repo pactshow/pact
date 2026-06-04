@@ -16,21 +16,33 @@ import {
   Clock,
   Link2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorCard } from "@/lib/QueryState";
 
 export default function Network() {
   const { myProfile } = useMyProfile();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
-  const { data: profiles = [] } = useQuery({
+  const profilesQuery = useQuery({
     queryKey: ["profiles"],
     queryFn: () => base44.entities.Profile.list(),
   });
 
-  const { data: connections = [] } = useQuery({
+  const connectionsQuery = useQuery({
     queryKey: ["connections"],
     queryFn: () => base44.entities.Connection.list(),
   });
+
+  const profiles = profilesQuery.data ?? [];
+  const connections = connectionsQuery.data ?? [];
+  const isLoading = profilesQuery.isLoading || connectionsQuery.isLoading;
+  const isError = profilesQuery.isError || connectionsQuery.isError;
+  const isFetching = profilesQuery.isFetching || connectionsQuery.isFetching;
+  const refetchAll = () => {
+    profilesQuery.refetch();
+    connectionsQuery.refetch();
+  };
 
   const sendRequest = useMutation({
     mutationFn: (recipientProfile) =>
@@ -108,6 +120,14 @@ export default function Network() {
           </p>
         </motion.div>
 
+        {isLoading && <NetworkBodySkeleton />}
+
+        {!isLoading && isError && (
+          <QueryErrorCard onRetry={refetchAll} isRetrying={isFetching} />
+        )}
+
+        {!isLoading && !isError && (
+        <>
         {/* Pending incoming requests */}
         <AnimatePresence>
           {pendingIncoming.length > 0 && (
@@ -261,6 +281,30 @@ export default function Network() {
             </div>
           )}
         </motion.div>
+        </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NetworkBodySkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-5 w-40 bg-zinc-800" />
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between rounded-xl bg-zinc-900/50 border border-zinc-800 p-4">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 bg-zinc-800 rounded-lg" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32 bg-zinc-800" />
+                <Skeleton className="h-3 w-24 bg-zinc-800" />
+              </div>
+            </div>
+            <Skeleton className="h-8 w-24 bg-zinc-800 rounded-md" />
+          </div>
+        ))}
       </div>
     </div>
   );

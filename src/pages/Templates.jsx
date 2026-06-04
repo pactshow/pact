@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Plus, 
+import {
+  Plus,
   Search,
   Edit,
   Trash2,
@@ -38,6 +38,22 @@ import { Badge } from "@/components/ui/badge";
 import SectionPicker from "@/components/contracts/SectionPicker";
 import { useSubscriptionAccess } from "@/lib/useSubscriptionAccess";
 import ProUpgradeScreen from "@/components/account/ProUpgradeScreen";
+import useFormDraft from "@/lib/useFormDraft";
+import DraftRestoredBanner from "@/components/DraftRestoredBanner";
+
+const EMPTY_TEMPLATE = {
+  name: '',
+  description: '',
+  set_length: '',
+  deposit_percentage: 50,
+  deposit_due_days_before: 14,
+  balance_due_timing: 'day_of',
+  technical_requirements: '',
+  hospitality_requirements: '',
+  additional_terms: '',
+  load_in_hours_before: 2,
+  contract_sections: []
+};
 
 // Outer wrapper handles the Pro gate so hooks in TemplatesInner are
 // always called in the same order across renders.
@@ -60,25 +76,11 @@ export default function Templates() {
 function TemplatesInner() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [formDialog, setFormDialog] = useState({ open: false, template: null });
+  // editing: null | { mode: 'new' } | { mode: 'edit', source } | { mode: 'duplicate', source }
+  const [editing, setEditing] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
-  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    set_length: '',
-    deposit_percentage: 50,
-    deposit_due_days_before: 14,
-    balance_due_timing: 'day_of',
-    technical_requirements: '',
-    hospitality_requirements: '',
-    additional_terms: '',
-    load_in_hours_before: 2,
-    contract_sections: []
-  });
-
-  const { data: templates = [], isLoading } = useQuery({
+  const { data: templates = [] } = useQuery({
     queryKey: ['templates'],
     queryFn: () => base44.entities.ContractTemplate.list('-created_date'),
   });
@@ -98,61 +100,35 @@ function TemplatesInner() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['templates'] }),
   });
 
-  const filteredTemplates = templates.filter(t => 
+  const filteredTemplates = templates.filter(t =>
     t.name?.toLowerCase().includes(search.toLowerCase()) ||
     t.description?.toLowerCase().includes(search.toLowerCase())
   );
-
-  const openForm = (template = null) => {
-    if (template) {
-      setFormData(template);
-    } else {
-      setFormData({
-        name: '',
-        description: '',
-        set_length: '',
-        deposit_percentage: 50,
-        deposit_due_days_before: 14,
-        balance_due_timing: 'day_of',
-        technical_requirements: '',
-        hospitality_requirements: '',
-        additional_terms: '',
-        load_in_hours_before: 2,
-        contract_sections: []
-      });
-    }
-    setFormDialog({ open: true, template });
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    if (formDialog.template) {
-      await updateTemplate.mutateAsync({ id: formDialog.template.id, data: formData });
-    } else {
-      await createTemplate.mutateAsync(formData);
-    }
-    setSaving(false);
-    setFormDialog({ open: false, template: null });
-  };
 
   const handleDelete = async () => {
     await deleteTemplate.mutateAsync(deleteDialog.template.id);
     setDeleteDialog({ open: false, template: null });
   };
 
-  const handleDuplicate = (template) => {
-    setFormData({
-      ...template,
-      name: `${template.name} (Copy)`
-    });
-    setFormDialog({ open: true, template: null });
+  const handleSave = async (formData) => {
+    if (editing.mode === 'edit') {
+      await updateTemplate.mutateAsync({ id: editing.source.id, data: formData });
+    } else {
+      await createTemplate.mutateAsync(formData);
+    }
   };
+
+  const dialogKey = editing
+    ? editing.mode === 'new'
+      ? 'new'
+      : `${editing.mode}:${editing.source.id}`
+    : null;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
@@ -161,8 +137,8 @@ function TemplatesInner() {
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Contract Templates</h1>
             <p className="mt-1 text-zinc-400">{templates.length} templates • Reusable terms & riders</p>
           </div>
-          <Button 
-            onClick={() => openForm()}
+          <Button
+            onClick={() => setEditing({ mode: 'new' })}
             className="bg-violet-600 hover:bg-violet-700 text-white gap-2 rounded-xl h-11 px-5"
           >
             <Plus className="w-4 h-4" />
@@ -171,7 +147,7 @@ function TemplatesInner() {
         </motion.div>
 
         {/* Search */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -209,7 +185,7 @@ function TemplatesInner() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => handleDuplicate(template)}
+                        onClick={() => setEditing({ mode: 'duplicate', source: template })}
                         className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
                         title="Duplicate"
                       >
@@ -218,7 +194,7 @@ function TemplatesInner() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => openForm(template)}
+                        onClick={() => setEditing({ mode: 'edit', source: template })}
                         className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
                       >
                         <Edit className="w-4 h-4" />
@@ -233,12 +209,12 @@ function TemplatesInner() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <h3 className="text-xl font-bold text-white mb-2">{template.name}</h3>
                   {template.description && (
                     <p className="text-sm text-zinc-400 mb-4 line-clamp-2">{template.description}</p>
                   )}
-                  
+
                   <div className="space-y-2 text-sm">
                     {template.set_length && (
                       <div className="flex items-center justify-between">
@@ -292,7 +268,7 @@ function TemplatesInner() {
             </AnimatePresence>
           </div>
         ) : (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="rounded-2xl bg-zinc-900/50 border border-zinc-800 p-12 text-center"
@@ -302,13 +278,13 @@ function TemplatesInner() {
               {search ? "No templates found" : "No templates yet"}
             </h3>
             <p className="text-zinc-400 mb-4">
-              {search 
+              {search
                 ? "Try adjusting your search"
                 : "Create templates with standard terms, riders, and payment structures"}
             </p>
             {!search && (
-              <Button 
-                onClick={() => openForm()}
+              <Button
+                onClick={() => setEditing({ mode: 'new' })}
                 className="bg-violet-600 hover:bg-violet-700 text-white gap-2 rounded-xl"
               >
                 <Plus className="w-4 h-4" />
@@ -318,179 +294,14 @@ function TemplatesInner() {
           </motion.div>
         )}
 
-        {/* Form Dialog */}
-        <Dialog open={formDialog.open} onOpenChange={(open) => setFormDialog({ open, template: open ? formDialog.template : null })}>
-          <DialogContent className="bg-zinc-900 border-zinc-800 max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-white">
-                {formDialog.template ? 'Edit Template' : 'New Template'}
-              </DialogTitle>
-              <DialogDescription className="text-zinc-400">
-                Create reusable contract terms and riders
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <Label className="text-zinc-300">Template Name</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    placeholder="e.g., Standard Club Show, Festival Set, Corporate Event"
-                    className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                  />
-                </div>
-                <div>
-                  <Label className="text-zinc-300">Description</Label>
-                  <Input
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    placeholder="What is this template for?"
-                    className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-zinc-300">Set Length</Label>
-                  <Input
-                    value={formData.set_length}
-                    onChange={(e) => setFormData({...formData, set_length: e.target.value})}
-                    placeholder="e.g., 90 minutes, 2 hours"
-                    className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                  />
-                </div>
-                <div>
-                  <Label className="text-zinc-300">Load-in Time (hours before)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="168"
-                    step="0.5"
-                    value={formData.load_in_hours_before || ''}
-                    onChange={(e) => setFormData({...formData, load_in_hours_before: parseFloat(e.target.value) || null})}
-                    placeholder="2"
-                    className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4 p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
-                <h3 className="font-semibold text-white flex items-center gap-2">
-                  <span className="text-amber-400">💰</span> Payment Structure
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-zinc-300">Deposit Percentage</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={formData.deposit_percentage || ''}
-                      onChange={(e) => setFormData({...formData, deposit_percentage: parseFloat(e.target.value) || null})}
-                      placeholder="50"
-                      className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                    />
-                    <p className="text-xs text-zinc-500 mt-1">% of total contract amount</p>
-                  </div>
-                  <div>
-                    <Label className="text-zinc-300">Deposit Due (days before)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.deposit_due_days_before || ''}
-                      onChange={(e) => setFormData({...formData, deposit_due_days_before: parseInt(e.target.value) || null})}
-                      placeholder="14"
-                      className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label className="text-zinc-300">Balance Due</Label>
-                  <Select 
-                    value={formData.balance_due_timing} 
-                    onValueChange={(v) => setFormData({...formData, balance_due_timing: v})}
-                  >
-                    <SelectTrigger className="mt-1.5 bg-zinc-800 border-zinc-700 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
-                      <SelectItem value="before_performance">Before Performance</SelectItem>
-                      <SelectItem value="day_of">Day of Performance</SelectItem>
-                      <SelectItem value="after_performance">After Performance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-zinc-300">Technical Requirements</Label>
-                <Textarea
-                  value={formData.technical_requirements}
-                  onChange={(e) => setFormData({...formData, technical_requirements: e.target.value})}
-                  placeholder="Sound system, backline, stage specs, lighting..."
-                  rows={4}
-                  className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                />
-              </div>
-
-              <div>
-                <Label className="text-zinc-300">Hospitality Requirements</Label>
-                <Textarea
-                  value={formData.hospitality_requirements}
-                  onChange={(e) => setFormData({...formData, hospitality_requirements: e.target.value})}
-                  placeholder="Catering, dressing room, accommodations..."
-                  rows={4}
-                  className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                />
-              </div>
-
-              <div>
-                <Label className="text-zinc-300">Additional Terms</Label>
-                <Textarea
-                  value={formData.additional_terms}
-                  onChange={(e) => setFormData({...formData, additional_terms: e.target.value})}
-                  placeholder="Cancellation policy, force majeure, liability..."
-                  rows={4}
-                  className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
-                />
-              </div>
-
-              <div className="pt-2 border-t border-zinc-700">
-                <Label className="text-zinc-300 block mb-1">Contract Clauses</Label>
-                <p className="text-xs text-zinc-500 mb-3">Select prewritten legal sections to include in contracts using this template. You can edit any section's text.</p>
-                <SectionPicker
-                  sections={formData.contract_sections || []}
-                  onChange={(sections) => setFormData({...formData, contract_sections: sections})}
-                />
-              </div>
-            </div>
-            
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setFormDialog({ open: false, template: null })}
-                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving || !formData.name}
-                className="bg-violet-600 hover:bg-violet-700"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                {formDialog.template ? 'Update' : 'Create'} Template
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {editing && (
+          <TemplateFormDialog
+            key={dialogKey}
+            editing={editing}
+            onSave={handleSave}
+            onClose={() => setEditing(null)}
+          />
+        )}
 
         {/* Delete Dialog */}
         <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, template: open ? deleteDialog.template : null })}>
@@ -514,5 +325,217 @@ function TemplatesInner() {
         </AlertDialog>
       </div>
     </div>
+  );
+}
+
+function TemplateFormDialog({ editing, onSave, onClose }) {
+  const draftKey =
+    editing.mode === 'new'
+      ? 'template:new'
+      : `template:${editing.mode}:${editing.source.id}`;
+
+  const initial =
+    editing.mode === 'edit'
+      ? editing.source
+      : editing.mode === 'duplicate'
+      ? { ...editing.source, id: undefined, name: `${editing.source.name} (Copy)` }
+      : EMPTY_TEMPLATE;
+
+  const [formData, setFormData, { restoredFromDraft, clearDraft, discardDraft }] =
+    useFormDraft(draftKey, initial);
+
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(formData);
+      clearDraft();
+      onClose();
+    } catch (err) {
+      console.error('Template save failed:', err);
+      alert(`Could not save template: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-white">
+            {editing.mode === 'edit' ? 'Edit Template' : 'New Template'}
+          </DialogTitle>
+          <DialogDescription className="text-zinc-400">
+            Create reusable contract terms and riders
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {restoredFromDraft && (
+            <DraftRestoredBanner onDiscard={() => discardDraft(initial)} />
+          )}
+
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <Label className="text-zinc-300">Template Name</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="e.g., Standard Club Show, Festival Set, Corporate Event"
+                className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+              />
+            </div>
+            <div>
+              <Label className="text-zinc-300">Description</Label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="What is this template for?"
+                className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-zinc-300">Set Length</Label>
+              <Input
+                value={formData.set_length}
+                onChange={(e) => setFormData({...formData, set_length: e.target.value})}
+                placeholder="e.g., 90 minutes, 2 hours"
+                className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+              />
+            </div>
+            <div>
+              <Label className="text-zinc-300">Load-in Time (hours before)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="168"
+                step="0.5"
+                value={formData.load_in_hours_before || ''}
+                onChange={(e) => setFormData({...formData, load_in_hours_before: parseFloat(e.target.value) || null})}
+                placeholder="2"
+                className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <span className="text-amber-400">💰</span> Payment Structure
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-zinc-300">Deposit Percentage</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={formData.deposit_percentage || ''}
+                  onChange={(e) => setFormData({...formData, deposit_percentage: parseFloat(e.target.value) || null})}
+                  placeholder="50"
+                  className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                />
+                <p className="text-xs text-zinc-500 mt-1">% of total contract amount</p>
+              </div>
+              <div>
+                <Label className="text-zinc-300">Deposit Due (days before)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.deposit_due_days_before || ''}
+                  onChange={(e) => setFormData({...formData, deposit_due_days_before: parseInt(e.target.value) || null})}
+                  placeholder="14"
+                  className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-zinc-300">Balance Due</Label>
+              <Select
+                value={formData.balance_due_timing}
+                onValueChange={(v) => setFormData({...formData, balance_due_timing: v})}
+              >
+                <SelectTrigger className="mt-1.5 bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="before_performance">Before Performance</SelectItem>
+                  <SelectItem value="day_of">Day of Performance</SelectItem>
+                  <SelectItem value="after_performance">After Performance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-zinc-300">Technical Requirements</Label>
+            <Textarea
+              value={formData.technical_requirements}
+              onChange={(e) => setFormData({...formData, technical_requirements: e.target.value})}
+              placeholder="Sound system, backline, stage specs, lighting..."
+              rows={4}
+              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+            />
+          </div>
+
+          <div>
+            <Label className="text-zinc-300">Hospitality Requirements</Label>
+            <Textarea
+              value={formData.hospitality_requirements}
+              onChange={(e) => setFormData({...formData, hospitality_requirements: e.target.value})}
+              placeholder="Catering, dressing room, accommodations..."
+              rows={4}
+              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+            />
+          </div>
+
+          <div>
+            <Label className="text-zinc-300">Additional Terms</Label>
+            <Textarea
+              value={formData.additional_terms}
+              onChange={(e) => setFormData({...formData, additional_terms: e.target.value})}
+              placeholder="Cancellation policy, force majeure, liability..."
+              rows={4}
+              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-zinc-700">
+            <Label className="text-zinc-300 block mb-1">Contract Clauses</Label>
+            <p className="text-xs text-zinc-500 mb-3">Select prewritten legal sections to include in contracts using this template. You can edit any section's text.</p>
+            <SectionPicker
+              sections={formData.contract_sections || []}
+              onChange={(sections) => setFormData({...formData, contract_sections: sections})}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !formData.name}
+            className="bg-violet-600 hover:bg-violet-700"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            {editing.mode === 'edit' ? 'Update' : 'Create'} Template
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
