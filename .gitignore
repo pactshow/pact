@@ -2,6 +2,9 @@
 .env
 .env.*
 
+# Personal notes — kept local, not part of the codebase
+TODO.md
+
 # Logs
 logs
 *.log
