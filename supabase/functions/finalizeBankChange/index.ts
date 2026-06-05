@@ -90,6 +90,34 @@ Deno.serve(async (req) => {
 
     const oldPmId = sub.stripe_payment_method_id;
 
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    // Bank-fingerprint dedup — same check as finalizeSubscription. A
+    // user can't sidestep the no-dupe-trial rule by signing up with a
+    // throwaway bank, then "changing" to the bank already used by their
+    // primary account.
+    const newPm = await stripe.paymentMethods.retrieve(newPmId);
+    const bankFingerprint = newPm.us_bank_account?.fingerprint ?? null;
+    if (bankFingerprint) {
+      const { data: takenBy } = await admin
+        .from('subscriptions')
+        .select('profile_id')
+        .eq('bank_fingerprint', bankFingerprint)
+        .neq('profile_id', profile.id)
+        .limit(1)
+        .maybeSingle();
+      if (takenBy) {
+        return json({
+          error:
+            'This bank account is already linked to a different Pact account. ' +
+            'If you need to use it on this account, email support@pact.show.',
+        }, 409);
+      }
+    }
+
     // Make new PM the customer's default-for-invoices and (if a sub
     // exists) the subscription's explicit default_payment_method.
     await stripe.customers.update(sub.stripe_customer_id, {
@@ -112,13 +140,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
     const { error: updErr } = await admin
       .from('subscriptions')
-      .update({ stripe_payment_method_id: newPmId })
+      .update({
+        stripe_payment_method_id: newPmId,
+        bank_fingerprint: bankFingerprint,
+      })
       .eq('profile_id', profile.id);
     if (updErr) throw updErr;
 

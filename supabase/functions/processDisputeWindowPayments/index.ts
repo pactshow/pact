@@ -29,6 +29,18 @@ const admin = createClient(
 // Default 200 bps = 2.00%.
 const PACT_FEE_BPS = parseInt(Deno.env.get('PACT_FEE_BPS') ?? '200', 10);
 
+// Don't transfer until paid_date is at least this many days old. Stripe
+// flips ACH status='succeeded' once the customer's bank acks — but the
+// bank can still reverse for NSF / insufficient-funds reasons for ~2-3
+// days after that. Default 5 days = comfortable cushion. (Doesn't cover
+// unauthorized-debit returns, which can come up to 60 days later — that
+// risk is mitigated via Stripe Radar + manual review on first transfers,
+// not in this cron.)
+const MIN_DAYS_AFTER_PAID = parseInt(
+  Deno.env.get('MIN_DAYS_AFTER_PAID') ?? '5',
+  10,
+);
+
 type Contract = {
   id: string;
   title: string;
@@ -169,17 +181,24 @@ Deno.serve(async (_req) => {
         continue;
       }
 
-      // Pull all payments on this contract that are charged but not yet transferred.
-      // Pull payments that are settled (status='paid') but not yet transferred.
-      // ACH payments sit in 'processing' for 3–5 business days before clearing;
-      // those are skipped this run and picked up after they settle.
+      // Pull payments that are settled (status='paid') AND have been
+      // settled long enough to clear the ACH-return cushion (default 5d),
+      // AND have not yet been transferred. Anything still inside the
+      // cushion is skipped this run — picked up next run.
+      const paidCutoff = new Date(
+        now.getTime() - MIN_DAYS_AFTER_PAID * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .split('T')[0];
+
       const { data: payments, error: paymentsError } = await admin
         .from('payments')
-        .select('id, contract_id, type, amount, stripe_charge_id, stripe_transfer_id, refunded_amount_cents')
+        .select('id, contract_id, type, amount, paid_date, stripe_charge_id, stripe_transfer_id, refunded_amount_cents')
         .eq('contract_id', contract.id)
         .eq('status', 'paid')
         .not('stripe_charge_id', 'is', null)
-        .is('stripe_transfer_id', null);
+        .is('stripe_transfer_id', null)
+        .lte('paid_date', paidCutoff);
 
       if (paymentsError) {
         errors.push({ contract_id: contract.id, error: paymentsError.message });

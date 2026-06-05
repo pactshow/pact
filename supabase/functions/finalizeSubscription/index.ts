@@ -117,13 +117,38 @@ Deno.serve(async (req) => {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    // Idempotency: if we already created a subscription for this user,
-    // reuse it rather than creating a duplicate. Cheaper than searching
-    // — we read our own DB.
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Bank-fingerprint dedup. Each us_bank_account PaymentMethod carries
+    // a stable fingerprint per (routing + account) tuple. Prevents trial
+    // farming by signing up under multiple emails with the same bank.
+    // The check is profile-scoped: a legit user re-subscribing after
+    // cancel hits the same profile_id and is allowed through.
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    const bankFingerprint = pm.us_bank_account?.fingerprint ?? null;
+    if (bankFingerprint) {
+      const { data: takenBy } = await admin
+        .from('subscriptions')
+        .select('profile_id')
+        .eq('bank_fingerprint', bankFingerprint)
+        .neq('profile_id', profile.id)
+        .limit(1)
+        .maybeSingle();
+      if (takenBy) {
+        return json({
+          error:
+            'This bank account is already linked to a different Pact account. ' +
+            'If you need to use it on this account, email support@pact.show.',
+        }, 409);
+      }
+    }
+
+    // Idempotency: if we already created a subscription for this user,
+    // reuse it rather than creating a duplicate. Cheaper than searching
+    // — we read our own DB.
     const { data: existingRow } = await admin
       .from('subscriptions')
       .select('stripe_subscription_id')
@@ -196,6 +221,7 @@ Deno.serve(async (req) => {
           stripe_customer_id: customer_id,
           stripe_subscription_id: stripeSubscription.id,
           stripe_payment_method_id: paymentMethodId,
+          bank_fingerprint: bankFingerprint,
           trial_ends_at: stripeSubscription.trial_end
             ? new Date(stripeSubscription.trial_end * 1000).toISOString()
             : null,

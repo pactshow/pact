@@ -78,6 +78,12 @@ export default function UploadedContractCard({ contract }) {
         <iframe
           src={signedUrl}
           title={contract.uploaded_file_name || 'Contract'}
+          // sandbox neuters scripts/forms/popups/top-level nav inside the
+          // PDF viewer. Empty value = everything off. The browser's built-in
+          // PDF viewer still renders fine; a malicious PDF that tries to
+          // run JS, redirect the parent, or pop windows is silently no-op'd.
+          sandbox=""
+          referrerPolicy="no-referrer"
           className="w-full h-[600px] rounded-xl bg-zinc-950 border border-zinc-800"
         />
       )}
