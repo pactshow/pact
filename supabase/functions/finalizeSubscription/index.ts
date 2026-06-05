@@ -1,5 +1,19 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  side: z.enum(['artist', 'promoter']),
+  tier: z.enum(['artist_basic', 'artist_pro', 'promoter_basic', 'promoter_pro']),
+  customer_id: z
+    .string()
+    .regex(/^cus_[A-Za-z0-9]{1,64}$/, 'must be a Stripe Customer id'),
+  setup_intent_id: z
+    .string()
+    .regex(/^seti_[A-Za-z0-9]{1,64}$/, 'must be a Stripe SetupIntent id'),
+});
 
 // Onboarding step 3, second half — after the SetupIntent succeeded.
 //
@@ -49,19 +63,23 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { side, tier, customer_id, setup_intent_id } = await req.json();
-    if (side !== 'artist' && side !== 'promoter') {
-      return json({ error: 'Invalid side' }, 400);
-    }
-    if (!tier || !tier.startsWith(side)) {
+    const rl = await rateLimit({
+      key: 'finalizeSubscription',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { side, tier, customer_id, setup_intent_id } = parsed.data;
+    if (!tier.startsWith(side)) {
       return json({ error: 'Tier does not match side' }, 400);
     }
     const priceId = PRICE_FOR_TIER[tier];
     if (!priceId) {
       return json({ error: `Stripe price for ${tier} not configured` }, 500);
-    }
-    if (!customer_id || !setup_intent_id) {
-      return json({ error: 'customer_id and setup_intent_id are required' }, 400);
     }
 
     const { data: profile, error: profileErr } = await supabase
@@ -202,7 +220,7 @@ Deno.serve(async (req) => {
         : null,
     });
   } catch (err) {
-    console.error('finalizeSubscription error:', err);
+    reportError('finalizeSubscription', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

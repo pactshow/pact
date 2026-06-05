@@ -1,6 +1,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
+import { reportError } from '../_shared/sentry.ts';
 // Creates a SetupIntent on the user's existing Stripe Customer so they
 // can swap the bank that gets billed for the subscription. Same shape
 // of return as createSubscriptionSetup so the frontend can reuse the
@@ -34,6 +36,14 @@ Deno.serve(async (req) => {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
+
+    const rl = await rateLimit({
+      key: 'createBankChangeSetup',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -81,7 +91,7 @@ Deno.serve(async (req) => {
       customer_id: sub.stripe_customer_id,
     });
   } catch (err) {
-    console.error('createBankChangeSetup error:', err);
+    reportError('createBankChangeSetup', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

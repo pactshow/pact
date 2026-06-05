@@ -1,5 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  payment_id: z.string().uuid(),
+});
 
 // Caller-initiated transfer of a single payment, ahead of the daily cron.
 // Only the client (payer) can release — releasing waives their dispute
@@ -48,8 +55,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { payment_id } = await req.json();
-    if (!payment_id) return json({ error: 'payment_id is required' }, 400);
+    const rl = await rateLimit({
+      key: 'releasePaymentEarly',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { payment_id } = parsed.data;
 
     // RLS scopes this read to contracts the caller is a party to.
     const { data: payment, error: paymentError } = await supabase
@@ -169,7 +185,7 @@ Deno.serve(async (req) => {
       payment_id: payment.id,
     });
   } catch (err) {
-    console.error('releasePaymentEarly error:', err);
+    reportError('releasePaymentEarly', err);
     return json(
       { error: err instanceof Error ? err.message : String(err) },
       500,

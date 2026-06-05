@@ -1,5 +1,14 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  setup_intent_id: z
+    .string()
+    .regex(/^seti_[A-Za-z0-9]{1,64}$/, 'must be a Stripe SetupIntent id'),
+});
 
 // Points the customer + active subscription at the freshly-linked
 // PaymentMethod, persists the new PM id to our row, and detaches the
@@ -34,8 +43,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { setup_intent_id } = await req.json();
-    if (!setup_intent_id) return json({ error: 'setup_intent_id is required' }, 400);
+    const rl = await rateLimit({
+      key: 'finalizeBankChange',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { setup_intent_id } = parsed.data;
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -106,7 +124,7 @@ Deno.serve(async (req) => {
 
     return json({ ok: true });
   } catch (err) {
-    console.error('finalizeBankChange error:', err);
+    reportError('finalizeBankChange', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

@@ -1,10 +1,88 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
+import { TOS_VERSION } from '@/lib/tos';
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+const TURNSTILE_SCRIPT_SRC =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+function useTurnstile() {
+  const containerRef = useRef(null);
+  const widgetIdRef = useRef(null);
+  const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || !containerRef.current) return;
+
+    let cancelled = false;
+
+    const ensureScript = () => {
+      if (document.querySelector(`script[src^="${TURNSTILE_SCRIPT_SRC}"]`)) return;
+      const script = document.createElement('script');
+      script.src = TURNSTILE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    };
+
+    const render = () => {
+      if (cancelled || !window.turnstile || !containerRef.current) return;
+      // Already rendered for this mount.
+      if (widgetIdRef.current) return;
+      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'dark',
+        callback: (t) => setToken(t),
+        'expired-callback': () => setToken(null),
+        'error-callback': () => setToken(null),
+      });
+    };
+
+    ensureScript();
+
+    if (window.turnstile) {
+      render();
+    } else {
+      const poll = setInterval(() => {
+        if (cancelled) {
+          clearInterval(poll);
+          return;
+        }
+        if (window.turnstile) {
+          clearInterval(poll);
+          render();
+        }
+      }, 100);
+      return () => {
+        cancelled = true;
+        clearInterval(poll);
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      if (window.turnstile && widgetIdRef.current) {
+        try { window.turnstile.remove(widgetIdRef.current); } catch { /* ignore */ }
+        widgetIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const reset = () => {
+    if (window.turnstile && widgetIdRef.current) {
+      try { window.turnstile.reset(widgetIdRef.current); } catch { /* ignore */ }
+    }
+    setToken(null);
+  };
+
+  return { containerRef, token, reset, enabled: !!TURNSTILE_SITE_KEY };
+}
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -12,9 +90,12 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+
+  const captcha = useTurnstile();
 
   const submit = async (e) => {
     e.preventDefault();
@@ -23,20 +104,42 @@ export default function SignIn() {
     setMessage(null);
 
     try {
+      if (captcha.enabled && !captcha.token) {
+        setError('Please complete the verification challenge.');
+        return;
+      }
+
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: captcha.token ? { captchaToken: captcha.token } : undefined,
+        });
         if (error) {
+          captcha.reset();
           setError('Invalid email or password.');
           return;
         }
         navigate('/', { replace: true });
       } else {
+        if (!tosAccepted) {
+          setError('You must agree to the Terms of Service to create an account.');
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: fullName } },
+          options: {
+            captchaToken: captcha.token ?? undefined,
+            data: {
+              full_name: fullName,
+              tos_version: TOS_VERSION,
+              tos_accepted_at: new Date().toISOString(),
+            },
+          },
         });
         if (error && !/already|registered|exists/i.test(error.message)) {
+          captcha.reset();
           setError(error.message);
           return;
         }
@@ -47,6 +150,7 @@ export default function SignIn() {
         }
       }
     } catch {
+      captcha.reset();
       setError('Something went wrong. Please try again.');
     } finally {
       setBusy(false);
@@ -102,6 +206,35 @@ export default function SignIn() {
             />
           </div>
 
+          {mode === 'signup' && (
+            <div className="flex items-start gap-2.5 pt-1">
+              <Checkbox
+                id="tos"
+                checked={tosAccepted}
+                onCheckedChange={(checked) => setTosAccepted(checked === true)}
+                className="mt-0.5 border-zinc-600 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600"
+              />
+              <Label htmlFor="tos" className="text-sm text-zinc-300 leading-snug font-normal cursor-pointer">
+                I have read and agree to the{' '}
+                <Link
+                  to="/Terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-violet-400 hover:text-violet-300 underline"
+                >
+                  Terms of Service
+                </Link>
+                .
+              </Label>
+            </div>
+          )}
+
+          {captcha.enabled && (
+            <div className="flex justify-center pt-1">
+              <div ref={captcha.containerRef} />
+            </div>
+          )}
+
           {error && (
             <div className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
               {error}
@@ -115,8 +248,12 @@ export default function SignIn() {
 
           <Button
             type="submit"
-            disabled={busy}
-            className="w-full bg-violet-600 hover:bg-violet-700 text-white rounded-xl h-11"
+            disabled={
+              busy
+              || (mode === 'signup' && !tosAccepted)
+              || (captcha.enabled && !captcha.token)
+            }
+            className="w-full bg-violet-600 hover:bg-violet-700 text-white rounded-xl h-11 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             {mode === 'signin' ? 'Sign in' : 'Create account'}

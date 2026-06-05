@@ -1,5 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  new_tier: z.enum(['artist_basic', 'artist_pro', 'promoter_basic', 'promoter_pro']),
+});
 
 // Tier upgrade / downgrade. Swaps the price item and prorates so the
 // user is fairly charged for the time-weighted difference. Also flips
@@ -47,7 +54,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { new_tier } = await req.json();
+    const rl = await rateLimit({
+      key: 'updateSubscription',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { new_tier } = parsed.data;
     const newPriceId = PRICE_FOR_TIER[new_tier];
     if (!newPriceId) return json({ error: 'Invalid tier' }, 400);
 
@@ -111,7 +128,7 @@ Deno.serve(async (req) => {
       status: updated.status,
     });
   } catch (err) {
-    console.error('updateSubscription error:', err);
+    reportError('updateSubscription', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

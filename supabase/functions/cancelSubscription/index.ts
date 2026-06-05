@@ -1,6 +1,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
+import { reportError } from '../_shared/sentry.ts';
 // Soft cancel — sets cancel_at_period_end so the user keeps access
 // until the end of their current paid period (or trial). The row's
 // status flip + final 'canceled' will arrive via webhook.
@@ -36,6 +38,14 @@ Deno.serve(async (req) => {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
+
+    const rl = await rateLimit({
+      key: 'cancelSubscription',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -81,7 +91,7 @@ Deno.serve(async (req) => {
         : null,
     });
   } catch (err) {
-    console.error('cancelSubscription error:', err);
+    reportError('cancelSubscription', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

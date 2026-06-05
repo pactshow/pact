@@ -1,5 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  profile_id: z.string().uuid(),
+});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
@@ -30,8 +37,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { profile_id } = await req.json();
-    if (!profile_id) return json({ error: 'profile_id is required' }, 400);
+    const rl = await rateLimit({
+      key: 'refreshConnectStatus',
+      identifier: clientIdentifier(req, user.id),
+      limit: 30,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { profile_id } = parsed.data;
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -81,7 +97,7 @@ Deno.serve(async (req) => {
       requirements: account.requirements,
     });
   } catch (err) {
-    console.error('refreshConnectStatus error:', err);
+    reportError('refreshConnectStatus', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

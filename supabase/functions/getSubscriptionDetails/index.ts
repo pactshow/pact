@@ -1,6 +1,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
+import { reportError } from '../_shared/sentry.ts';
 // Single round-trip for the Account tab. Returns the data the UI needs
 // from Stripe (bank last4, invoice history) plus enough context to
 // render the current-plan card without re-querying.
@@ -37,6 +39,14 @@ Deno.serve(async (req) => {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
+
+    const rl = await rateLimit({
+      key: 'getSubscriptionDetails',
+      identifier: clientIdentifier(req, user.id),
+      limit: 60,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -95,7 +105,7 @@ Deno.serve(async (req) => {
 
     return json({ bank, billing_history });
   } catch (err) {
-    console.error('getSubscriptionDetails error:', err);
+    reportError('getSubscriptionDetails', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

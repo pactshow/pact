@@ -1,5 +1,13 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  side: z.enum(['artist', 'promoter']),
+  tier: z.enum(['artist_basic', 'artist_pro', 'promoter_basic', 'promoter_pro']),
+});
 
 // Onboarding step 3 — Customer + SetupIntent for the bank-link.
 //
@@ -26,13 +34,6 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
 });
 
-const VALID_TIERS = new Set([
-  'artist_basic',
-  'artist_pro',
-  'promoter_basic',
-  'promoter_pro',
-]);
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -51,13 +52,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { side, tier } = await req.json();
-    if (side !== 'artist' && side !== 'promoter') {
-      return json({ error: 'Invalid side' }, 400);
-    }
-    if (!VALID_TIERS.has(tier)) {
-      return json({ error: 'Invalid tier' }, 400);
-    }
+    const rl = await rateLimit({
+      key: 'createSubscriptionSetup',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { side, tier } = parsed.data;
     if (!tier.startsWith(side)) {
       return json({ error: 'Tier does not match side' }, 400);
     }
@@ -119,7 +124,7 @@ Deno.serve(async (req) => {
       customer_id: customerId,
     });
   } catch (err) {
-    console.error('createSubscriptionSetup error:', err);
+    reportError('createSubscriptionSetup', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

@@ -1,12 +1,19 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
 
+import { reportError } from '../_shared/sentry.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+const BodySchema = z.object({
+  payment_id: z.string().uuid(),
+});
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -66,8 +73,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { payment_id } = await req.json();
-    if (!payment_id) return json({ error: 'payment_id is required' }, 400);
+    const rl = await rateLimit({
+      key: 'createPaymentIntent',
+      identifier: clientIdentifier(req, user.id),
+      limit: 20,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { payment_id } = parsed.data;
 
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
@@ -236,7 +252,7 @@ Deno.serve(async (req) => {
       fee_payer: feePayer,
     });
   } catch (err) {
-    console.error('createPaymentIntent error:', err);
+    reportError('createPaymentIntent', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

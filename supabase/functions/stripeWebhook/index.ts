@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { reportError } from '../_shared/sentry.ts';
 
 // Public endpoint — Stripe is the caller, not a logged-in user. Deploy
 // with `--no-verify-jwt` so Supabase doesn't reject requests for lacking
@@ -96,7 +97,7 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error(`Error handling ${event.type}:`, err);
+    reportError('stripeWebhook', err, { event_type: event.type, event_id: event.id });
     // Returning 500 makes Stripe retry. That's what we want for transient
     // errors — the handler is idempotent below.
     return new Response('Handler error', { status: 500 });

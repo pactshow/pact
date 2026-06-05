@@ -1,5 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { jsPDF } from 'npm:jspdf@2.5.2';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  contract_id: z.string().uuid(),
+});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
@@ -30,10 +37,17 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized' }, 401);
     }
 
-    const { contract_id } = await req.json();
-    if (!contract_id) {
-      return json({ error: 'contract_id is required' }, 400);
-    }
+    const rl = await rateLimit({
+      key: 'generateContractPDF',
+      identifier: clientIdentifier(req, user.id),
+      limit: 30,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const { contract_id } = parsed.data;
 
     // RLS ensures the user can only read contracts they're a participant in.
     const { data: contract, error: contractError } = await supabase
@@ -49,7 +63,7 @@ Deno.serve(async (req) => {
     const pdfDataUri = renderContractPdf(contract, contract_id);
     return json({ success: true, pdf_url: pdfDataUri });
   } catch (err) {
-    console.error('generateContractPDF error:', err);
+    reportError('generateContractPDF', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

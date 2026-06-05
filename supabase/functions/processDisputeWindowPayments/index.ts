@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
 
+import { reportError } from '../_shared/sentry.ts';
 // Daily cron-invoked job. For each contract whose dispute window has
 // closed without a dispute, transfer captured platform funds to the
 // contractor's connected Stripe account.
@@ -302,7 +303,7 @@ Deno.serve(async (_req) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err) {
-    console.error('processDisputeWindowPayments fatal:', err);
+    reportError('processDisputeWindowPayments', err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },

@@ -1,5 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  year: z.number().int().min(2020).max(2100).optional(),
+});
 
 // Tax-time aggregation for a Pro user: every contractor they paid in
 // the requested year, with totals and what Stripe knows about that
@@ -58,12 +65,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const body = await req.json().catch(() => ({}));
-    const yearRaw = Number(body?.year ?? new Date().getFullYear());
-    if (!Number.isInteger(yearRaw) || yearRaw < 2020 || yearRaw > 2100) {
-      return json({ error: 'Invalid year' }, 400);
-    }
-    const year = yearRaw;
+    const rl = await rateLimit({
+      key: 'getTaxReport',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
+
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const year = parsed.data.year ?? new Date().getFullYear();
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -304,7 +316,7 @@ Deno.serve(async (req) => {
 
     return json({ year, contractors, totals });
   } catch (err) {
-    console.error('getTaxReport error:', err);
+    reportError('getTaxReport', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

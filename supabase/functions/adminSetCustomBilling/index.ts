@@ -1,5 +1,18 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@14.21.0';
+import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+import { validateBody, z } from '../_shared/validate.ts';
+
+import { reportError } from '../_shared/sentry.ts';
+const BodySchema = z.object({
+  subscription_id: z.string().uuid(),
+  custom_fee_bps: z.number().int().min(0).max(10_000).nullable().optional(),
+  custom_monthly_price_id: z
+    .string()
+    .regex(/^price_[A-Za-z0-9]{1,64}$/, 'must be a Stripe Price id')
+    .nullable()
+    .optional(),
+});
 
 // Admin-only — set custom billing overrides on any subscription:
 //   * custom_fee_bps: applied per-transaction in createPaymentIntent +
@@ -50,18 +63,19 @@ Deno.serve(async (req) => {
       return json({ error: 'Admin only' }, 403);
     }
 
-    const body = await req.json();
-    const subscriptionId: string = body?.subscription_id;
-    if (!subscriptionId) return json({ error: 'subscription_id required' }, 400);
+    const rl = await rateLimit({
+      key: 'adminSetCustomBilling',
+      identifier: clientIdentifier(req, user.id),
+      limit: 10,
+      windowSec: 60,
+    });
+    if (!rl.ok) return rateLimitResponse(rl.retryAfter, corsHeaders);
 
-    const customFeeBps: number | null = body?.custom_fee_bps ?? null;
-    if (customFeeBps != null) {
-      if (!Number.isInteger(customFeeBps) || customFeeBps < 0 || customFeeBps > 10_000) {
-        return json({ error: 'custom_fee_bps must be 0-10000 (bps)' }, 400);
-      }
-    }
-
-    const newPriceId: string | null = body?.custom_monthly_price_id || null;
+    const parsed = await validateBody(req, BodySchema);
+    if (!parsed.ok) return json({ error: parsed.error }, 400);
+    const subscriptionId = parsed.data.subscription_id;
+    const customFeeBps = parsed.data.custom_fee_bps ?? null;
+    const newPriceId = parsed.data.custom_monthly_price_id || null;
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -123,7 +137,7 @@ Deno.serve(async (req) => {
       custom_monthly_price_id: newPriceId,
     });
   } catch (err) {
-    console.error('adminSetCustomBilling error:', err);
+    reportError('adminSetCustomBilling', err);
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
