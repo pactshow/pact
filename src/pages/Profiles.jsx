@@ -66,7 +66,14 @@ function ProfilesContent({ profile }) {
       clearDraft();
     } catch (err) {
       console.error('Profile save failed:', err);
-      alert(`Could not save profile: ${err.message || 'Unknown error'}`);
+      const msg = err.message || 'Unknown error';
+      if (/duplicate key|already exists/i.test(msg) && /username/i.test(msg)) {
+        alert('That username is already taken. Try another.');
+      } else if (/profiles_username_format/i.test(msg)) {
+        alert('Username must be 3-20 characters: lowercase letters, numbers, or underscore.');
+      } else {
+        alert(`Could not save profile: ${msg}`);
+      }
     } finally {
       setSaving(false);
     }
@@ -139,6 +146,30 @@ function ProfilesContent({ profile }) {
                 placeholder="Your name or business name"
                 className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
               />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-zinc-300">
+                Username <span className="text-zinc-500 font-normal">(optional)</span>
+              </Label>
+              <div className="relative mt-1.5">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">@</span>
+                <Input
+                  value={formData.username || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') || null,
+                    })
+                  }
+                  maxLength={20}
+                  placeholder="preston"
+                  autoComplete="username"
+                  className="pl-7 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                />
+              </div>
+              <p className="text-xs text-zinc-500 mt-1">
+                3-20 chars: lowercase letters, numbers, underscore. Used for @-mentions on the Network page.
+              </p>
             </div>
             <div>
               <Label className="text-zinc-300">Email</Label>

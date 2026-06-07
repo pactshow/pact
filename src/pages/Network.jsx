@@ -81,9 +81,17 @@ export default function Network() {
     (c) => myProfile && c.recipient_profile_id === myProfile.id && c.status === "pending"
   );
 
-  const otherProfiles = profiles.filter(
-    (p) => p.id !== myProfile?.id && p.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const otherProfiles = profiles.filter((p) => {
+    if (p.id === myProfile?.id) return false;
+    const q = search.trim().toLowerCase().replace(/^@/, '');
+    if (!q) return true;
+    return (
+      p.name?.toLowerCase().includes(q) ||
+      p.username?.toLowerCase().includes(q) ||
+      p.email?.toLowerCase().includes(q) ||
+      p.city?.toLowerCase().includes(q)
+    );
+  });
 
   const acceptedConnections = connections.filter(
     (c) =>
@@ -186,9 +194,9 @@ export default function Network() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">{p.name}</p>
-                        {(p.city || p.email) && (
-                          <p className="text-xs text-zinc-500">{p.city || p.email}</p>
-                        )}
+                        <p className="text-xs text-zinc-500">
+                          {p.username ? `@${p.username}` : (p.city || p.email)}
+                        </p>
                       </div>
                     </div>
                     <Button
@@ -212,7 +220,7 @@ export default function Network() {
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <Input
-              placeholder="Search by name..."
+              placeholder="Search by @username, name, email, or city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 bg-zinc-900/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-violet-500 rounded-xl"
@@ -236,8 +244,10 @@ export default function Network() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">{p.name}</p>
-                        {p.city && (
-                          <p className="text-xs text-zinc-500">{p.city}</p>
+                        {(p.username || p.city) && (
+                          <p className="text-xs text-zinc-500">
+                            {p.username ? `@${p.username}` : p.city}
+                          </p>
                         )}
                       </div>
                     </div>

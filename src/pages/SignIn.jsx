@@ -90,6 +90,7 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
@@ -126,6 +127,11 @@ export default function SignIn() {
           setError('You must agree to the Terms of Service to create an account.');
           return;
         }
+        const trimmedUsername = username.trim().toLowerCase();
+        if (trimmedUsername && !/^[a-z0-9_]{3,20}$/.test(trimmedUsername)) {
+          setError('Username must be 3-20 characters: lowercase letters, numbers, or underscore.');
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -135,13 +141,22 @@ export default function SignIn() {
               full_name: fullName,
               tos_version: TOS_VERSION,
               tos_accepted_at: new Date().toISOString(),
+              ...(trimmedUsername ? { username: trimmedUsername } : {}),
             },
           },
         });
-        if (error && !/already|registered|exists/i.test(error.message)) {
-          captcha.reset();
-          setError(error.message);
-          return;
+        if (error) {
+          // 23505 = unique violation from the username partial unique index
+          if (/duplicate key|already exists/i.test(error.message) && /username/i.test(error.message)) {
+            captcha.reset();
+            setError('That username is already taken. Try another.');
+            return;
+          }
+          if (!/already|registered|exists/i.test(error.message)) {
+            captcha.reset();
+            setError(error.message);
+            return;
+          }
         }
         if (data?.session) {
           navigate('/', { replace: true });
@@ -169,16 +184,37 @@ export default function SignIn() {
 
         <form onSubmit={submit} className="space-y-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
           {mode === 'signup' && (
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Full name</Label>
-              <Input
-                id="name"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="name">Full name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="username">
+                  Username <span className="text-zinc-500 font-normal">(optional)</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">@</span>
+                  <Input
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    maxLength={20}
+                    placeholder="preston"
+                    autoComplete="username"
+                    className="pl-7"
+                  />
+                </div>
+                <p className="text-xs text-zinc-500">3-20 chars: lowercase letters, numbers, underscore.</p>
+              </div>
+            </>
           )}
 
           <div className="space-y-1.5">
