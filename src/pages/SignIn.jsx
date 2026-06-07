@@ -128,7 +128,7 @@ export default function SignIn() {
           return;
         }
         const trimmedUsername = username.trim().toLowerCase();
-        if (trimmedUsername && !/^[a-z0-9_]{3,20}$/.test(trimmedUsername)) {
+        if (!/^[a-z0-9_]{3,20}$/.test(trimmedUsername)) {
           setError('Username must be 3-20 characters: lowercase letters, numbers, or underscore.');
           return;
         }
@@ -141,7 +141,7 @@ export default function SignIn() {
               full_name: fullName,
               tos_version: TOS_VERSION,
               tos_accepted_at: new Date().toISOString(),
-              ...(trimmedUsername ? { username: trimmedUsername } : {}),
+              username: trimmedUsername,
             },
           },
         });
@@ -196,9 +196,7 @@ export default function SignIn() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="username">
-                  Username <span className="text-zinc-500 font-normal">(optional)</span>
-                </Label>
+                <Label htmlFor="username">Username</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">@</span>
                   <Input
@@ -206,9 +204,11 @@ export default function SignIn() {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    minLength={3}
                     maxLength={20}
                     placeholder="preston"
                     autoComplete="username"
+                    required
                     className="pl-7"
                   />
                 </div>

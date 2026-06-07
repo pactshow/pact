@@ -148,9 +148,7 @@ function ProfilesContent({ profile }) {
               />
             </div>
             <div className="md:col-span-2">
-              <Label className="text-zinc-300">
-                Username <span className="text-zinc-500 font-normal">(optional)</span>
-              </Label>
+              <Label className="text-zinc-300">Username</Label>
               <div className="relative mt-1.5">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">@</span>
                 <Input
@@ -158,9 +156,10 @@ function ProfilesContent({ profile }) {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') || null,
+                      username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''),
                     })
                   }
+                  minLength={3}
                   maxLength={20}
                   placeholder="preston"
                   autoComplete="username"
@@ -371,7 +370,7 @@ function ProfilesContent({ profile }) {
           <div className="flex justify-end pt-2">
             <Button
               onClick={handleSave}
-              disabled={saving || !formData.name || !formData.email}
+              disabled={saving || !formData.name || !formData.email || !formData.username}
               className="bg-violet-600 hover:bg-violet-700 gap-2 rounded-xl h-11 px-6"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
