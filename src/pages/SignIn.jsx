@@ -200,7 +200,7 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white px-4">
+    <main className="min-h-screen flex items-center justify-center bg-zinc-950 text-white px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Pact.</h1>
@@ -381,6 +381,6 @@ export default function SignIn() {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

@@ -25,8 +25,8 @@ export default function VenuePaymentRecords() {
   const [expanded, setExpanded] = useState(null);
 
   const { data: profiles = [] } = useQuery({
-    queryKey: ["profiles"],
-    queryFn: () => base44.entities.Profile.list("-created_date"),
+    queryKey: ["public_profiles"],
+    queryFn: () => base44.entities.PublicProfile.list("-created_date"),
   });
 
   const { data: payments = [] } = useQuery({

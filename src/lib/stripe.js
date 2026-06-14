@@ -1,5 +1,10 @@
-import { loadStripe } from '@stripe/stripe-js';
-import { loadConnectAndInitialize } from '@stripe/connect-js';
+// Use the /pure entry points so the Stripe SDK script is NOT injected
+// on every page load — only when loadStripe() / loadConnectAndInitialize()
+// is actually invoked. The default entry auto-loads js.stripe.com/v3 on
+// import, which adds ~488 KiB of JS and sets a third-party tracking
+// cookie (m.stripe.com) on pages that have nothing to do with payments.
+import { loadStripe } from '@stripe/stripe-js/pure';
+import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import { base44 } from '@/api/base44Client';
 
 const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;

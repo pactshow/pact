@@ -84,11 +84,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-zinc-900/50 border-r border-zinc-800 px-6 pb-4">
           {/* Logo */}
           <div className="flex h-16 shrink-0 items-center">
-            <img 
-              src="https://media.base44.com/images/public/6982b525bbf1aa39d2ad1474/07af62a33_B4FDD5C5-788C-4B9B-8DFD-36B7FACBB6CF.png" 
-              alt="Pact." 
-              className="h-10 w-auto rounded-lg bg-white px-2 py-1"
-            />
+            <span className="text-2xl font-bold tracking-tight text-white">Pact.</span>
           </div>
           
           {/* Navigation */}
@@ -171,11 +167,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex items-center gap-3 ml-auto">
           <MyProfileMenu />
           <NotificationBell />
-          <img
-            src="https://media.base44.com/images/public/6982b525bbf1aa39d2ad1474/07af62a33_B4FDD5C5-788C-4B9B-8DFD-36B7FACBB6CF.png"
-            alt="Pact."
-            className="h-8 w-auto rounded-lg bg-white px-2 py-1"
-          />
+          <span className="text-lg font-bold tracking-tight text-white">Pact.</span>
         </div>
       </div>
 
@@ -200,11 +192,7 @@ export default function Layout({ children, currentPageName }) {
             >
               <div className="flex h-16 items-center justify-between px-6">
                 <div className="flex items-center">
-                  <img 
-                    src="https://media.base44.com/images/public/6982b525bbf1aa39d2ad1474/07af62a33_B4FDD5C5-788C-4B9B-8DFD-36B7FACBB6CF.png" 
-                    alt="Pact." 
-                    className="h-8 w-auto rounded-lg bg-white px-2 py-1"
-                  />
+                  <span className="text-xl font-bold tracking-tight text-white">Pact.</span>
                 </div>
                 <Button
                   variant="ghost"

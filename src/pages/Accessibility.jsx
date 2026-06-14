@@ -23,7 +23,7 @@ export default function Accessibility() {
         </div>
       </header>
 
-      <article className="max-w-3xl mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-3xl font-bold tracking-tight text-white">Accessibility Statement</h1>
         <p className="text-zinc-400 text-sm mt-2">Last Updated: June 4, 2026 (Version {ACCESSIBILITY_VERSION})</p>
 
@@ -81,10 +81,10 @@ export default function Accessibility() {
           If you're not satisfied with our response, you may file a complaint with the appropriate accessibility regulator in your jurisdiction.
         </P>
 
-        <div className="mt-12 pt-6 border-t border-zinc-800 text-sm text-zinc-500">
+        <div className="mt-12 pt-6 border-t border-zinc-800 text-sm text-zinc-400">
           See also: <Link to="/Terms" className="text-violet-400 hover:text-violet-300 underline">Terms of Service</Link> · <Link to="/Privacy" className="text-violet-400 hover:text-violet-300 underline">Privacy Policy</Link>
         </div>
-      </article>
+      </main>
     </div>
   );
 }

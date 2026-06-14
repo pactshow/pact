@@ -29,7 +29,7 @@ export default function Privacy() {
         </div>
       </header>
 
-      <article className="max-w-3xl mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-3xl font-bold tracking-tight text-white">Pact Privacy Policy</h1>
         <p className="text-zinc-400 text-sm mt-2">Last Updated: June 4, 2026 (Version {PRIVACY_VERSION})</p>
 
@@ -130,10 +130,10 @@ export default function Privacy() {
           Privacy questions or requests: <a className="text-violet-400 hover:text-violet-300 underline" href="mailto:hello@pact.show">hello@pact.show</a>.
         </P>
 
-        <div className="mt-12 pt-6 border-t border-zinc-800 text-sm text-zinc-500">
+        <div className="mt-12 pt-6 border-t border-zinc-800 text-sm text-zinc-400">
           See also: <Link to="/Terms" className="text-violet-400 hover:text-violet-300 underline">Terms of Service</Link> · <Link to="/Accessibility" className="text-violet-400 hover:text-violet-300 underline">Accessibility</Link>
         </div>
-      </article>
+      </main>
     </div>
   );
 }

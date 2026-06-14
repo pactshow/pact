@@ -24,9 +24,12 @@ export default function Network() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
+  // PublicProfile is a view that exposes only the non-PII columns.
+  // Email/phone/address are NOT returned here; counterparty contact info
+  // is only readable once an accepted connection exists.
   const profilesQuery = useQuery({
-    queryKey: ["profiles"],
-    queryFn: () => base44.entities.Profile.list(),
+    queryKey: ["public_profiles"],
+    queryFn: () => base44.entities.PublicProfile.list(),
   });
 
   const connectionsQuery = useQuery({
@@ -88,7 +91,6 @@ export default function Network() {
     return (
       p.name?.toLowerCase().includes(q) ||
       p.username?.toLowerCase().includes(q) ||
-      p.email?.toLowerCase().includes(q) ||
       p.city?.toLowerCase().includes(q)
     );
   });
@@ -195,7 +197,7 @@ export default function Network() {
                       <div>
                         <p className="text-sm font-medium text-white">{p.name}</p>
                         <p className="text-xs text-zinc-500">
-                          {p.username ? `@${p.username}` : (p.city || p.email)}
+                          {p.username ? `@${p.username}` : p.city}
                         </p>
                       </div>
                     </div>
@@ -221,7 +223,7 @@ export default function Network() {
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <Input
-              placeholder="Search by @username, name, email, or city..."
+              placeholder="Search by @username, name, or city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 bg-zinc-900/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-violet-500 rounded-xl"

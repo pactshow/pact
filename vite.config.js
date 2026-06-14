@@ -26,9 +26,9 @@ export default defineConfig({
     },
   },
   build: {
-    // Source maps are emitted for production so Sentry can resolve
-    // minified stack traces — the plugin uploads them then strips them
-    // from the deploy if you want (we leave them for now; tiny app).
-    sourcemap: enableSentryUpload,
+    // Always emit source maps so production stack traces are debuggable
+    // (Lighthouse flags missing maps as a best-practices issue). Upload
+    // to Sentry only runs when SENTRY_AUTH_TOKEN is configured.
+    sourcemap: true,
   },
 });

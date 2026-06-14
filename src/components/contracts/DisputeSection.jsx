@@ -21,7 +21,7 @@ import {
   AlertCircle,
   BookOpen,
 } from "lucide-react";
-import { format, parseISO, differenceInMilliseconds } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function computePerformanceStart(contract) {

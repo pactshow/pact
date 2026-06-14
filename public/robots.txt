@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Disallow: /Dashboard
+Disallow: /Contracts
+Disallow: /Payments
+Disallow: /Account
+Disallow: /Profiles
+Disallow: /Network
+Disallow: /Templates
+Disallow: /MyClauses
+Disallow: /Folders
+Disallow: /TaxReports
+Disallow: /VenuePaymentRecords
+Disallow: /Onboarding
+Disallow: /AdminClauses
+Disallow: /AdminBilling

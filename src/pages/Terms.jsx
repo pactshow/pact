@@ -43,7 +43,7 @@ export default function Terms() {
         </div>
       </header>
 
-      <article className="max-w-3xl mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-3xl font-bold tracking-tight text-white">Pact Terms of Service</h1>
         <p className="text-zinc-400 text-sm mt-2">Last Updated: May 27, 2026 (Version {TOS_VERSION})</p>
 
@@ -243,7 +243,7 @@ export default function Terms() {
         <div className="mt-12 pt-6 border-t-2 border-zinc-700 text-center uppercase tracking-wide text-sm text-zinc-400">
           By clicking "I Agree," creating an account, or using the Platform, you confirm that you have read, understood, and agree to be bound by these Terms, including the arbitration agreement and class action waiver in Section 17 and the indemnity and release in Section 16.
         </div>
-      </article>
+      </main>
     </div>
   );
 }

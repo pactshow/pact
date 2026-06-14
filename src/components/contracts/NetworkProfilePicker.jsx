@@ -14,6 +14,10 @@ export default function NetworkProfilePicker({ onSelect, label = "Auto-fill from
   const { myProfile } = useMyProfile();
   const [open, setOpen] = useState(false);
 
+  // Uses the full Profile table (not PublicProfile) because the picker
+  // autofills counterparty email/address into the contract form. RLS
+  // restricts this list to self + accepted-connection counterparties,
+  // which is exactly the set this component filters down to anyway.
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles"],
     queryFn: () => base44.entities.Profile.list(),

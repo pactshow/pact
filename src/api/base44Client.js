@@ -24,6 +24,10 @@ const TABLE_MAP = {
   Contract: 'contracts',
   Payment: 'payments',
   Profile: 'profiles',
+  // PII-safe view over profiles. Use for any list of OTHER users
+  // (discovery, search); Profile reads are restricted to self + accepted
+  // connections by RLS.
+  PublicProfile: 'public_profiles',
   Connection: 'connections',
   Notification: 'notifications',
   ContractTemplate: 'contract_templates',
