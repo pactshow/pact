@@ -3,23 +3,24 @@ import Stripe from 'npm:stripe@14.21.0';
 import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 import { reportError } from '../_shared/sentry.ts';
+import { corsHeaders as buildCors } from '../_shared/cors.ts';
 // Un-cancel a subscription that was scheduled to end at period end.
 // Only valid before period end actually arrives — once the subscription
 // has terminally canceled, this returns an error and the user has to
 // resubscribe (which we don't support in-app yet).
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
 });
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -89,10 +90,3 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}

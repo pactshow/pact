@@ -97,8 +97,19 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+  const [deletedBanner, setDeletedBanner] = useState(false);
 
   const captcha = useTurnstile();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('deleted') === '1') {
+      setDeletedBanner(true);
+      params.delete('deleted');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -197,6 +208,16 @@ export default function SignIn() {
             {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
           </p>
         </div>
+
+        {deletedBanner && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-4 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3"
+          >
+            Your account has been deleted. Thanks for using Pact.
+          </div>
+        )}
 
         <form onSubmit={submit} className="space-y-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
           {mode === 'signup' && (

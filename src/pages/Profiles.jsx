@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import ConnectOnboardingDialog from "@/components/payments/ConnectOnboardingDialog";
 import SubscriptionCard from "@/components/account/SubscriptionCard";
+import DeleteAccountCard from "@/components/account/DeleteAccountCard";
 import useFormDraft from "@/lib/useFormDraft";
 import DraftRestoredBanner from "@/components/DraftRestoredBanner";
 
@@ -381,6 +382,10 @@ function ProfilesContent({ profile }) {
 
         <div className="mt-6">
           <SubscriptionCard profile={profile} />
+        </div>
+
+        <div className="mt-6">
+          <DeleteAccountCard profile={profile} />
         </div>
       </div>
 

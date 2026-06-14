@@ -4,6 +4,7 @@ import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateL
 import { validateBody, z } from '../_shared/validate.ts';
 
 import { reportError } from '../_shared/sentry.ts';
+import { corsHeaders as buildCors } from '../_shared/cors.ts';
 const BodySchema = z.object({
   setup_intent_id: z
     .string()
@@ -14,18 +15,18 @@ const BodySchema = z.object({
 // PaymentMethod, persists the new PM id to our row, and detaches the
 // old PM so the Stripe customer doesn't accumulate dead bank accounts.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
 });
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -155,10 +156,3 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}

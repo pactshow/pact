@@ -3,23 +3,24 @@ import Stripe from 'npm:stripe@14.21.0';
 import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 import { reportError } from '../_shared/sentry.ts';
+import { corsHeaders as buildCors } from '../_shared/cors.ts';
 // Creates a SetupIntent on the user's existing Stripe Customer so they
 // can swap the bank that gets billed for the subscription. Same shape
 // of return as createSubscriptionSetup so the frontend can reuse the
 // Stripe Elements <PaymentElement> mount with FC.
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
 });
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -95,10 +96,3 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}

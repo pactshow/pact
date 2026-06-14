@@ -4,6 +4,7 @@ import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateL
 import { validateBody, z } from '../_shared/validate.ts';
 
 import { reportError } from '../_shared/sentry.ts';
+import { corsHeaders as buildCors } from '../_shared/cors.ts';
 const BodySchema = z.object({
   payment_id: z.string().uuid(),
 });
@@ -11,13 +12,6 @@ const BodySchema = z.object({
 // Caller-initiated transfer of a single payment, ahead of the daily cron.
 // Only the client (payer) can release — releasing waives their dispute
 // rights on that payment, so it must be an explicit, authenticated action.
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -31,6 +25,13 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 const RELEASE_DISABLED = Deno.env.get('RELEASE_PAYMENT_EARLY_ENABLED') !== 'true';
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -192,10 +193,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}

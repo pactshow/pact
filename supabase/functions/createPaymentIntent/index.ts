@@ -4,13 +4,7 @@ import { clientIdentifier, rateLimit, rateLimitResponse } from '../_shared/rateL
 import { validateBody, z } from '../_shared/validate.ts';
 
 import { reportError } from '../_shared/sentry.ts';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? 'https://www.pact.show',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
+import { corsHeaders as buildCors } from '../_shared/cors.ts';
 const BodySchema = z.object({
   payment_id: z.string().uuid(),
 });
@@ -56,6 +50,13 @@ function computeChargeWithFee(
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -256,10 +257,3 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
