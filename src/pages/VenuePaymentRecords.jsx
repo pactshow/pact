@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import { useMyProfile } from "@/lib/RoleContext";
 import { motion } from "framer-motion";
 import {
   DollarSign, FileText, CheckCircle2, AlertCircle,
@@ -23,6 +24,7 @@ const TAX_LABEL = {
 export default function VenuePaymentRecords() {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const { myProfile } = useMyProfile();
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["public_profiles"],
@@ -39,7 +41,26 @@ export default function VenuePaymentRecords() {
     queryFn: () => base44.entities.Contract.list("-performance_date"),
   });
 
-  const filteredProfiles = profiles.filter((p) =>
+  // Counterparty profile_ids derived from contracts the logged-in user
+  // is a participant in (contracts.list() is already RLS-scoped to
+  // participants, so this is "people I've actually contracted with").
+  const counterpartyIds = useMemo(() => {
+    if (!myProfile) return new Set();
+    const ids = new Set();
+    for (const c of contracts) {
+      if (c.contractor_profile_id && c.contractor_profile_id !== myProfile.id) {
+        ids.add(c.contractor_profile_id);
+      }
+      if (c.client_profile_id && c.client_profile_id !== myProfile.id) {
+        ids.add(c.client_profile_id);
+      }
+    }
+    return ids;
+  }, [contracts, myProfile]);
+
+  const relevantProfiles = profiles.filter((p) => counterpartyIds.has(p.id));
+
+  const filteredProfiles = relevantProfiles.filter((p) =>
     p.name?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -90,12 +111,12 @@ export default function VenuePaymentRecords() {
           />
         </div>
 
-        {/* Summary Stats */}
+        {/* Summary Stats — scoped to contracts the viewer is a party to. */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "Total Profiles", value: profiles.length, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-            { label: "W-9s Collected", value: profiles.filter(a => a.w9_signed).length, icon: FileText, color: "text-violet-400", bg: "bg-violet-500/10" },
-            { label: "ACH On File", value: profiles.filter(a => a.ach_routing_number).length, icon: Landmark, color: "text-blue-400", bg: "bg-blue-500/10" },
+            { label: "Counterparties", value: relevantProfiles.length, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+            { label: "W-9s Collected", value: relevantProfiles.filter(a => a.w9_signed).length, icon: FileText, color: "text-violet-400", bg: "bg-violet-500/10" },
+            { label: "ACH On File", value: relevantProfiles.filter(a => a.ach_routing_number).length, icon: Landmark, color: "text-blue-400", bg: "bg-blue-500/10" },
             {
               label: "Total Paid Out",
               value: `$${payments.filter(p => p.status === "paid").reduce((s, p) => s + (p.amount || 0), 0).toLocaleString()}`,
@@ -117,7 +138,11 @@ export default function VenuePaymentRecords() {
           {filteredProfiles.length === 0 && (
             <div className="text-center py-16 text-zinc-500">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>No profiles found.</p>
+              <p>
+                {search.trim()
+                  ? "No counterparties match your search."
+                  : "No payment records yet. Counterparties from your contracts will appear here."}
+              </p>
             </div>
           )}
           {filteredProfiles.map((profile) => {
@@ -146,7 +171,9 @@ export default function VenuePaymentRecords() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-white">{profile.name}</span>
                     </div>
-                    <div className="text-sm text-zinc-500 mt-0.5">{profile.email}</div>
+                    <div className="text-sm text-zinc-500 mt-0.5">
+                      {profile.username ? `@${profile.username}` : profile.city}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right hidden sm:block">
