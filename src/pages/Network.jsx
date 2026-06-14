@@ -203,9 +203,10 @@ export default function Network() {
                       size="sm"
                       variant="ghost"
                       onClick={() => removeConnection.mutate(conn.id)}
+                      aria-label={`Remove connection: ${conn.other_profile?.name ?? 'user'}`}
                       className="text-zinc-600 hover:text-rose-400 h-8 w-8 p-0"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4" aria-hidden="true" />
                     </Button>
                   </div>
                 );

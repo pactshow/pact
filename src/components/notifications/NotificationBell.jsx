@@ -101,19 +101,21 @@ export default function NotificationBell() {
                 notifications.map(n => {
                   const cfg = typeConfig[n.type] || typeConfig.contract_received;
                   const Icon = cfg.icon;
-                  const content = (
-                    <div
-                      key={n.id}
-                      onClick={() => markOneRead(n)}
-                      className={`flex gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors cursor-pointer ${!n.read ? 'bg-zinc-800/30' : ''}`}
-                    >
+                  const inner = (
+                    <div className={`flex gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors text-left w-full ${!n.read ? 'bg-zinc-800/30' : ''}`}>
                       <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${cfg.bg}`}>
-                        <Icon className={`w-4 h-4 ${cfg.color}`} />
+                        <Icon className={`w-4 h-4 ${cfg.color}`} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className={`text-sm font-medium leading-tight ${n.read ? 'text-zinc-300' : 'text-white'}`}>{n.title}</p>
-                          {!n.read && <span className="shrink-0 w-2 h-2 mt-1 rounded-full bg-violet-500" />}
+                          {!n.read && (
+                            <span
+                              role="img"
+                              aria-label="Unread"
+                              className="shrink-0 w-2 h-2 mt-1 rounded-full bg-violet-500"
+                            />
+                          )}
                         </div>
                         <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed line-clamp-2">{n.message}</p>
                         <p className="text-xs text-zinc-500 mt-1">
@@ -128,10 +130,20 @@ export default function NotificationBell() {
                       key={n.id}
                       to={`${createPageUrl("ContractDetail")}?id=${n.contract_id}`}
                       onClick={() => { markOneRead(n); setOpen(false); }}
+                      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-inset"
                     >
-                      {content}
+                      {inner}
                     </Link>
-                  ) : content;
+                  ) : (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => markOneRead(n)}
+                      className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-inset"
+                    >
+                      {inner}
+                    </button>
+                  );
                 })
               )}
             </div>

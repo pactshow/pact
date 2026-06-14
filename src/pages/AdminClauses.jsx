@@ -187,18 +187,20 @@ export default function AdminClauses() {
                             <Button
                               variant="ghost" size="sm"
                               onClick={() => setEditing(c)}
+                              aria-label={`Edit clause: ${c.title}`}
                               className="text-zinc-400 hover:text-white hover:bg-zinc-800"
                             >
-                              <Pencil className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" aria-hidden="true" />
                             </Button>
                             <Button
                               variant="ghost" size="sm"
                               onClick={() => setConfirmDelete(c)}
+                              aria-label={`Delete clause: ${c.title}`}
                               className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" aria-hidden="true" />
                             </Button>
-                            <span className="text-zinc-500 ml-1">
+                            <span className="text-zinc-500 ml-1" aria-hidden="true">
                               {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </span>
                           </div>

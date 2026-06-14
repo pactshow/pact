@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster"
+import { MotionConfig } from "framer-motion"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
@@ -96,17 +97,19 @@ const AuthenticatedApp = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <RoleProvider>
-            <Router>
-              <NavigationTracker />
-              <AuthenticatedApp />
-            </Router>
-            <Toaster />
-          </RoleProvider>
-        </QueryClientProvider>
-      </AuthProvider>
+      <MotionConfig reducedMotion="user">
+        <AuthProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <RoleProvider>
+              <Router>
+                <NavigationTracker />
+                <AuthenticatedApp />
+              </Router>
+              <Toaster />
+            </RoleProvider>
+          </QueryClientProvider>
+        </AuthProvider>
+      </MotionConfig>
     </ErrorBoundary>
   )
 }
