@@ -29,6 +29,7 @@ import {
   Download,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { contractStatusLabel } from "@/lib/contractStatus";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -306,7 +307,7 @@ export default function ContractDetail() {
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{contract.title}</h1>
                 <Badge className={`${statusStyles[contract.status]} border text-sm`}>
-                  {contract.status}
+                  {contractStatusLabel(contract.status)}
                 </Badge>
               </div>
               <p className="text-zinc-400">

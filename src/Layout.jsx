@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import MyProfileMenu from "@/components/profile/MyProfileMenu";
 import GuestArtistBankPrompt from "@/components/payments/GuestArtistBankPrompt";
+import AgeGate from "@/components/AgeGate";
 import { useMyProfile } from "@/lib/RoleContext";
 import { useSubscriptionAccess } from "@/lib/useSubscriptionAccess";
 
@@ -76,6 +77,7 @@ export default function Layout({ children, currentPageName }) {
       >
         Skip to main content
       </a>
+      <AgeGate />
       <GuestArtistBankPrompt />
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
@@ -98,7 +100,8 @@ export default function Layout({ children, currentPageName }) {
                   <li key={item.name}>
                     <Link
                       to={createPageUrl(item.page)}
-                      className={`group flex items-center gap-x-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      aria-current={isActive ? "page" : undefined}
+                      className={`group flex items-center gap-x-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                         isActive
                           ? "bg-violet-600 text-white"
                           : "text-zinc-400 hover:text-white hover:bg-zinc-800"
@@ -125,7 +128,8 @@ export default function Layout({ children, currentPageName }) {
                         <li key={item.name}>
                           <Link
                             to={createPageUrl(item.page)}
-                            className={`group flex gap-x-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                            aria-current={isActive ? "page" : undefined}
+                            className={`group flex gap-x-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                               isActive
                                 ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
                                 : "text-zinc-400 hover:text-amber-200 hover:bg-amber-500/10"
@@ -156,10 +160,13 @@ export default function Layout({ children, currentPageName }) {
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Open navigation menu"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-nav-drawer"
           className="text-zinc-400 hover:text-white"
           onClick={() => setMobileMenuOpen(true)}
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-6 w-6" aria-hidden="true" />
         </Button>
         <div className="flex items-center gap-3 ml-auto">
           <MyProfileMenu />
@@ -184,6 +191,7 @@ export default function Layout({ children, currentPageName }) {
               onClick={() => setMobileMenuOpen(false)}
             />
             <motion.div
+              id="mobile-nav-drawer"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
@@ -201,10 +209,11 @@ export default function Layout({ children, currentPageName }) {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Close navigation menu"
                   className="text-zinc-400 hover:text-white"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </Button>
               </div>
               
@@ -217,7 +226,8 @@ export default function Layout({ children, currentPageName }) {
                         <Link
                           to={createPageUrl(item.page)}
                           onClick={() => setMobileMenuOpen(false)}
-                          className={`group flex items-center gap-x-3 rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                          aria-current={isActive ? "page" : undefined}
+                          className={`group flex items-center gap-x-3 rounded-xl px-3 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                             isActive
                               ? "bg-violet-600 text-white"
                               : "text-zinc-400 hover:text-white hover:bg-zinc-800"
@@ -245,7 +255,8 @@ export default function Layout({ children, currentPageName }) {
                               <Link
                                 to={createPageUrl(item.page)}
                                 onClick={() => setMobileMenuOpen(false)}
-                                className={`group flex gap-x-3 rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                                aria-current={isActive ? "page" : undefined}
+                                className={`group flex gap-x-3 rounded-xl px-3 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                                   isActive
                                     ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
                                     : "text-zinc-400 hover:text-amber-200 hover:bg-amber-500/10"
@@ -274,12 +285,12 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Footer with legal links — present on every authenticated page */}
       <footer className="lg:pl-64 border-t border-zinc-800 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-zinc-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-zinc-400">
           <p>&copy; {new Date().getFullYear()} Pact.</p>
           <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-1">
-            <Link to="/Terms" className="hover:text-zinc-300">Terms</Link>
-            <Link to="/Privacy" className="hover:text-zinc-300">Privacy</Link>
-            <Link to="/Accessibility" className="hover:text-zinc-300">Accessibility</Link>
+            <Link to="/Terms" className="hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded">Terms</Link>
+            <Link to="/Privacy" className="hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded">Privacy</Link>
+            <Link to="/Accessibility" className="hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 rounded">Accessibility</Link>
           </nav>
         </div>
       </footer>

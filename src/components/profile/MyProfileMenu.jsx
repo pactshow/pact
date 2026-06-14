@@ -27,10 +27,10 @@ export default function MyProfileMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-          title="Account"
+          className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+          aria-label="Account menu"
         >
-          <UserCircle className="w-5 h-5" />
+          <UserCircle className="w-5 h-5" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

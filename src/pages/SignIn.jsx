@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { TOS_VERSION } from '@/lib/tos';
+import { MIN_AGE_YEARS, maxDobForInput, ageOnDate } from '@/lib/age';
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 const TURNSTILE_SCRIPT_SRC =
@@ -91,6 +92,7 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
+  const [dob, setDob] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
@@ -132,6 +134,19 @@ export default function SignIn() {
           setError('Username must be 3-20 characters: lowercase letters, numbers, or underscore.');
           return;
         }
+        if (!dob) {
+          setError('Please enter your date of birth.');
+          return;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+          setError('Date of birth must be a valid date.');
+          return;
+        }
+        const age = ageOnDate(dob);
+        if (Number.isNaN(age) || age < MIN_AGE_YEARS) {
+          setError(`You must be ${MIN_AGE_YEARS} or older to use Pact.`);
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -142,6 +157,7 @@ export default function SignIn() {
               tos_version: TOS_VERSION,
               tos_accepted_at: new Date().toISOString(),
               username: trimmedUsername,
+              date_of_birth: dob,
             },
           },
         });
@@ -214,6 +230,20 @@ export default function SignIn() {
                 </div>
                 <p className="text-xs text-zinc-500">3-20 chars: lowercase letters, numbers, underscore.</p>
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="dob">Date of birth</Label>
+                <Input
+                  id="dob"
+                  type="date"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                  max={maxDobForInput()}
+                  min="1900-01-01"
+                  autoComplete="bday"
+                  required
+                />
+                <p className="text-xs text-zinc-500">You must be 18 or older to use Pact.</p>
+              </div>
             </>
           )}
 
@@ -272,12 +302,20 @@ export default function SignIn() {
           )}
 
           {error && (
-            <div className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2"
+            >
               {error}
             </div>
           )}
           {message && (
-            <div className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+            <div
+              role="status"
+              aria-live="polite"
+              className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2"
+            >
               {message}
             </div>
           )}

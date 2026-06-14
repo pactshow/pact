@@ -57,11 +57,14 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className="relative p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="w-5 h-5" aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 w-2 h-2 bg-violet-500 rounded-full ring-2 ring-zinc-950" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-violet-500 rounded-full ring-2 ring-zinc-950" aria-hidden="true" />
         )}
       </button>
 
@@ -91,8 +94,8 @@ export default function NotificationBell() {
             <div className="max-h-[60vh] overflow-y-auto divide-y divide-zinc-800/60">
               {notifications.length === 0 ? (
                 <div className="py-12 text-center">
-                  <Bell className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                  <p className="text-zinc-500 text-sm">No notifications yet</p>
+                  <Bell className="w-8 h-8 text-zinc-600 mx-auto mb-2" aria-hidden="true" />
+                  <p className="text-zinc-400 text-sm">No notifications yet</p>
                 </div>
               ) : (
                 notifications.map(n => {
@@ -112,8 +115,8 @@ export default function NotificationBell() {
                           <p className={`text-sm font-medium leading-tight ${n.read ? 'text-zinc-300' : 'text-white'}`}>{n.title}</p>
                           {!n.read && <span className="shrink-0 w-2 h-2 mt-1 rounded-full bg-violet-500" />}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed line-clamp-2">{n.message}</p>
-                        <p className="text-xs text-zinc-600 mt-1">
+                        <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed line-clamp-2">{n.message}</p>
+                        <p className="text-xs text-zinc-500 mt-1">
                           {formatDistanceToNow(new Date(n.created_date), { addSuffix: true })}
                         </p>
                       </div>

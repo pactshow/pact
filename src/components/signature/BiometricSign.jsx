@@ -102,7 +102,7 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
       const publicKeyCredentialCreationOptions = {
         challenge: challenge,
         rp: {
-          name: "GigFlow",
+          name: "Pact.",
           id: window.location.hostname,
         },
         user: {
@@ -162,12 +162,14 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
           </Alert>
 
           <div>
-            <Label className="text-zinc-300">Full Legal Name</Label>
+            <Label htmlFor="biosign-name" className="text-zinc-300">Full Legal Name</Label>
             <Input
+              id="biosign-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your full name"
-              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+              autoComplete="name"
+              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-400"
               disabled={signing}
             />
           </div>
@@ -182,7 +184,7 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
 
           <div className="flex flex-col items-center gap-4 py-6 border-2 border-dashed border-zinc-700 rounded-xl bg-zinc-900/50">
             <div className="p-4 rounded-full bg-violet-600/20">
-              <Fingerprint className="w-12 h-12 text-violet-400" />
+              <Fingerprint className="w-12 h-12 text-violet-400" aria-hidden="true" />
             </div>
             <div className="text-center">
               <p className="text-white font-medium">Biometric Signature Required</p>
@@ -198,7 +200,7 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
               variant="outline"
               onClick={onCancel}
               disabled={signing}
-              className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="flex-1 h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
             >
               Cancel
             </Button>
@@ -206,16 +208,16 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
               type="button"
               onClick={handleBiometricSign}
               disabled={signing || !name.trim()}
-              className="flex-1 bg-violet-600 hover:bg-violet-700 gap-2"
+              className="flex-1 h-11 bg-violet-600 hover:bg-violet-700 gap-2"
             >
               {signing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   Authenticating...
                 </>
               ) : (
                 <>
-                  <Smartphone className="w-4 h-4" />
+                  <Smartphone className="w-4 h-4" aria-hidden="true" />
                   Sign with Biometrics
                 </>
               )}
@@ -233,8 +235,8 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
             </button>
           </div>
 
-          <p className="text-xs text-zinc-500 text-center">
-            Your biometric data never leaves your device and is not stored by GigFlow
+          <p className="text-xs text-zinc-400 text-center">
+            Your biometric data never leaves your device and is not stored by Pact.
           </p>
         </>
       ) : (
@@ -247,12 +249,14 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
           </Alert>
 
           <div>
-            <Label className="text-zinc-300">Full Legal Name</Label>
+            <Label htmlFor="biosign-typed-name" className="text-zinc-300">Full Legal Name</Label>
             <Input
+              id="biosign-typed-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your full name"
-              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+              autoComplete="name"
+              className="mt-1.5 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-400"
               disabled={signing}
             />
           </div>
@@ -283,7 +287,7 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
               variant="outline"
               onClick={onCancel}
               disabled={signing}
-              className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="flex-1 h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
             >
               Cancel
             </Button>
@@ -291,16 +295,16 @@ export default function BiometricSign({ onSign, onCancel, signerName, signerType
               type="button"
               onClick={handleTypedSign}
               disabled={signing || !name.trim()}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+              className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 gap-2"
             >
               {signing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   Signing...
                 </>
               ) : (
                 <>
-                  <PenTool className="w-4 h-4" />
+                  <PenTool className="w-4 h-4" aria-hidden="true" />
                   Sign Contract
                 </>
               )}

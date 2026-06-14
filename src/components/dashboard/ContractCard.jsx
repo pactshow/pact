@@ -4,6 +4,7 @@ import { Calendar, DollarSign, ChevronRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { contractStatusLabel } from "@/lib/contractStatus";
 
 const statusStyles = {
   draft: "bg-zinc-500/20 text-zinc-300 border-zinc-500/30",
@@ -34,7 +35,7 @@ export default function ContractCard({ contract, index = 0 }) {
                   {contract.title}
                 </h3>
                 <Badge className={`${statusStyles[contract.status]} border text-xs`}>
-                  {contract.status}
+                  {contractStatusLabel(contract.status)}
                 </Badge>
               </div>
               
@@ -44,7 +45,7 @@ export default function ContractCard({ contract, index = 0 }) {
                 <span>{contract.client_name}</span>
               </div>
               
-              <div className="flex items-center gap-5 mt-3 text-sm text-zinc-500">
+              <div className="flex items-center gap-5 mt-3 text-sm text-zinc-400">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
                   {contract.performance_date

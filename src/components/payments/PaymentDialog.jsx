@@ -66,7 +66,7 @@ function PaymentForm({ payment, chargeCents, payerName, payerEmail, onClose, onS
         }}
       />
       {error && (
-        <p className="text-sm text-rose-400">{error}</p>
+        <p role="alert" aria-live="assertive" className="text-sm text-rose-400">{error}</p>
       )}
       <div className="flex justify-end gap-2 pt-2">
         <Button
@@ -74,17 +74,17 @@ function PaymentForm({ payment, chargeCents, payerName, payerEmail, onClose, onS
           variant="outline"
           onClick={onClose}
           disabled={submitting}
-          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          className="h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
         >
           Cancel
         </Button>
         <Button
           type="submit"
           disabled={!stripe || !elementReady || submitting}
-          className="bg-violet-600 hover:bg-violet-500 text-white"
+          className="h-11 bg-violet-600 hover:bg-violet-500 text-white"
         >
           {submitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
           ) : (
             `Pay ${formatUSD(chargeCents)}`
           )}
