@@ -17,14 +17,15 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Loader2, ShieldCheck, BookOpen, Save, Variable, ChevronDown, ChevronUp } from "lucide-react";
-import { extractTemplateKeys, substituteTemplate } from "@/lib/utils";
+import { Plus, Pencil, Trash2, Loader2, ShieldCheck, BookOpen, Save, Variable, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { cn, extractTemplateKeys, substituteTemplate } from "@/lib/utils";
 import useFormDraft from "@/lib/useFormDraft";
 import DraftRestoredBanner from "@/components/DraftRestoredBanner";
 import ClauseListSkeleton from "@/components/contracts/ClauseListSkeleton";
 import { QueryErrorCard } from "@/lib/QueryState";
 
-const EMPTY_CLAUSE = { title: '', category: '', content: '', sort_order: 0, is_active: true, slug: '', variables: [] };
+const EMPTY_CLAUSE = { title: '', category: '', content: '', sort_order: 0, is_active: true, slug: '', variables: [], variant_group: '', variant_group_label: '' };
 
 const slugify = (s) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 64);
@@ -58,6 +59,8 @@ export default function AdminClauses() {
 
   const upsertMutation = useMutation({
     mutationFn: async (clause) => {
+      const variantGroup = (clause.variant_group ?? '').trim() || null;
+      const variantGroupLabel = (clause.variant_group_label ?? '').trim() || null;
       const payload = {
         slug: clause.slug || slugify(clause.title),
         title: clause.title,
@@ -66,6 +69,9 @@ export default function AdminClauses() {
         sort_order: Number(clause.sort_order ?? 0),
         is_active: clause.is_active ?? true,
         variables: Array.isArray(clause.variables) ? clause.variables : [],
+        variant_group: variantGroup,
+        // DB check constraint requires a label when group is set.
+        variant_group_label: variantGroup ? variantGroupLabel : null,
       };
       if (clause.id) {
         const { error } = await supabase
@@ -83,6 +89,58 @@ export default function AdminClauses() {
       setEditing(null);
     },
   });
+
+  // Reorder writes sort_order = (index+1)*10 for every row in the affected
+  // category. The *10 leaves gaps so individual rows can still be manually
+  // re-numbered in the editor without forcing a bulk shuffle.
+  const reorderMutation = useMutation({
+    mutationFn: async ({ orderedRows }) => {
+      await Promise.all(
+        orderedRows.map((row, idx) =>
+          supabase.from('clause_library')
+            .update({ sort_order: (idx + 1) * 10 })
+            .eq('id', row.id)
+            .then(({ error }) => { if (error) throw error; })
+        )
+      );
+    },
+    // Optimistic: paint the new order immediately so the drop feels instant.
+    onMutate: async ({ category, orderedRows }) => {
+      await queryClient.cancelQueries({ queryKey: ['admin-clause-library'] });
+      const prev = queryClient.getQueryData(['admin-clause-library']);
+      queryClient.setQueryData(['admin-clause-library'], (old) => {
+        if (!old) return old;
+        const orderedIds = new Set(orderedRows.map(r => r.id));
+        const sortMap = new Map(orderedRows.map((r, i) => [r.id, (i + 1) * 10]));
+        return old.map(c => orderedIds.has(c.id)
+          ? { ...c, sort_order: sortMap.get(c.id) }
+          : c
+        );
+      });
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['admin-clause-library'], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-clause-library'] });
+      queryClient.invalidateQueries({ queryKey: ['clause-library'] });
+    },
+  });
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    if (result.source.droppableId !== result.destination.droppableId) return;
+    if (result.source.index === result.destination.index) return;
+
+    const category = result.source.droppableId;
+    const items = (clausesQuery.data ?? [])
+      .filter(c => c.category === category)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const [moved] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, moved);
+    reorderMutation.mutate({ category, orderedRows: items });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
@@ -152,74 +210,115 @@ export default function AdminClauses() {
             isRetrying={clausesQuery.isFetching}
           />
         ) : (
-          <div className="space-y-6">
-            {Object.entries(grouped).map(([category, items]) => (
-              <section key={category}>
-                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">{category}</h2>
-                <div className="space-y-2">
-                  {items.map(c => {
-                    const isOpen = !!expanded[c.id];
-                    return (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="space-y-6">
+              {Object.entries(grouped).map(([category, items]) => (
+                <section key={category}>
+                  <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    {category}
+                    <span className="text-zinc-600 text-xs font-normal normal-case tracking-normal">— drag <GripVertical className="inline w-3 h-3 -mt-0.5" /> to reorder</span>
+                  </h2>
+                  <Droppable droppableId={category}>
+                    {(dropProvided, dropSnap) => (
                       <div
-                        key={c.id}
-                        className="rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 transition-colors"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setExpanded(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
-                          className="w-full flex items-center gap-3 p-4 text-left"
-                        >
-                          <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-                            <h3 className="text-white font-medium">{c.title}</h3>
-                            {!c.is_active && (
-                              <Badge className="bg-zinc-700 text-zinc-300 border-0 text-xs">Inactive</Badge>
-                            )}
-                            {Array.isArray(c.variables) && c.variables.length > 0 && (
-                              <Badge className="bg-violet-500/20 text-violet-300 border border-violet-500/30 text-xs gap-1">
-                                <Variable className="w-3 h-3" />
-                                {c.variables.length} var{c.variables.length === 1 ? '' : 's'}
-                              </Badge>
-                            )}
-                            <span className="text-xs text-zinc-600 font-mono">{c.slug}</span>
-                            <span className="text-xs text-zinc-600 ml-auto">#{c.sort_order}</span>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="ghost" size="sm"
-                              onClick={() => setEditing(c)}
-                              aria-label={`Edit clause: ${c.title}`}
-                              className="text-zinc-400 hover:text-white hover:bg-zinc-800"
-                            >
-                              <Pencil className="w-4 h-4" aria-hidden="true" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm"
-                              onClick={() => setConfirmDelete(c)}
-                              aria-label={`Delete clause: ${c.title}`}
-                              className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
-                            >
-                              <Trash2 className="w-4 h-4" aria-hidden="true" />
-                            </Button>
-                            <span className="text-zinc-500 ml-1" aria-hidden="true">
-                              {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </span>
-                          </div>
-                        </button>
-                        {isOpen && (
-                          <div className="px-4 pb-4 border-t border-zinc-800 pt-3">
-                            <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{c.content}</p>
-                          </div>
+                        ref={dropProvided.innerRef}
+                        {...dropProvided.droppableProps}
+                        className={cn(
+                          "space-y-2 rounded-xl transition-colors",
+                          dropSnap.isDraggingOver && "bg-violet-500/5"
                         )}
+                      >
+                        {items.map((c, idx) => {
+                          const isOpen = !!expanded[c.id];
+                          return (
+                            <Draggable key={c.id} draggableId={c.id} index={idx}>
+                              {(dragProvided, dragSnap) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className={cn(
+                                    "rounded-xl border bg-zinc-900/50 transition-colors",
+                                    dragSnap.isDragging
+                                      ? "border-violet-500 shadow-lg shadow-violet-500/20"
+                                      : "border-zinc-800 hover:border-zinc-700"
+                                  )}
+                                >
+                                  <div className="flex items-center">
+                                    <span
+                                      {...dragProvided.dragHandleProps}
+                                      className="pl-3 pr-1 py-4 text-zinc-600 hover:text-violet-400 cursor-grab active:cursor-grabbing"
+                                      aria-label={`Drag to reorder: ${c.title}`}
+                                    >
+                                      <GripVertical className="w-4 h-4" />
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpanded(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
+                                      className="flex-1 min-w-0 flex items-center gap-3 py-4 pr-4 text-left"
+                                    >
+                                      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                                        <h3 className="text-white font-medium">{c.title}</h3>
+                                        {!c.is_active && (
+                                          <Badge className="bg-zinc-700 text-zinc-300 border-0 text-xs">Inactive</Badge>
+                                        )}
+                                        {Array.isArray(c.variables) && c.variables.length > 0 && (
+                                          <Badge className="bg-violet-500/20 text-violet-300 border border-violet-500/30 text-xs gap-1">
+                                            <Variable className="w-3 h-3" />
+                                            {c.variables.length} var{c.variables.length === 1 ? '' : 's'}
+                                          </Badge>
+                                        )}
+                                        {c.variant_group && (
+                                          <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs">
+                                            {c.variant_group_label || c.variant_group}
+                                          </Badge>
+                                        )}
+                                        <span className="text-xs text-zinc-600 font-mono">{c.slug}</span>
+                                        <span className="text-xs text-zinc-600 ml-auto">#{c.sort_order}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                        <Button
+                                          variant="ghost" size="sm"
+                                          onClick={() => setEditing(c)}
+                                          aria-label={`Edit clause: ${c.title}`}
+                                          className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                        >
+                                          <Pencil className="w-4 h-4" aria-hidden="true" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost" size="sm"
+                                          onClick={() => setConfirmDelete(c)}
+                                          aria-label={`Delete clause: ${c.title}`}
+                                          className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
+                                        >
+                                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                                        </Button>
+                                        <span className="text-zinc-500 ml-1" aria-hidden="true">
+                                          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  </div>
+                                  {isOpen && (
+                                    <div className="px-4 pb-4 border-t border-zinc-800 pt-3">
+                                      <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{c.content}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {dropProvided.placeholder}
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-            {clauses.length === 0 && (
-              <p className="text-center text-zinc-500 py-12">No clauses yet. Click "New clause" to add one.</p>
-            )}
-          </div>
+                    )}
+                  </Droppable>
+                </section>
+              ))}
+              {clauses.length === 0 && (
+                <p className="text-center text-zinc-500 py-12">No clauses yet. Click "New clause" to add one.</p>
+              )}
+            </div>
+          </DragDropContext>
         )}
       </div>
 
@@ -304,7 +403,9 @@ function ClauseEditor({ clause, onClose, onSave, saving, error }) {
     setDraft({ ...draft, variables: (draft.variables ?? []).filter((_, i) => i !== idx) });
   };
 
-  const canSave = draft.title.trim() && draft.category.trim() && draft.content.trim() && !saving;
+  const variantGroupSet = (draft.variant_group ?? '').trim();
+  const variantGroupValid = !variantGroupSet || (draft.variant_group_label ?? '').trim();
+  const canSave = draft.title.trim() && draft.category.trim() && draft.content.trim() && variantGroupValid && !saving;
 
   return (
     <Dialog open={!!clause} onOpenChange={(o) => !o && onClose()}>
@@ -341,6 +442,28 @@ function ClauseEditor({ clause, onClose, onSave, saving, error }) {
                 onChange={(e) => setDraft({ ...draft, category: e.target.value })}
                 placeholder="e.g. Performance"
                 className="mt-1.5 bg-zinc-800 border-zinc-700 text-white"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 space-y-2">
+            <Label className="text-zinc-300 text-sm">Variant group <span className="text-zinc-600 font-normal">(optional)</span></Label>
+            <p className="text-xs text-zinc-500 -mt-1">
+              Tie this clause to a "pick one of" group, e.g. <code className="text-violet-300">cancellation_terms</code>. Leave blank for a standalone checkbox clause.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                value={draft.variant_group ?? ''}
+                onChange={(e) => setDraft({ ...draft, variant_group: normalizeVarKey(e.target.value) })}
+                placeholder="cancellation_terms"
+                className="bg-zinc-800 border-zinc-700 text-white font-mono text-xs h-9"
+              />
+              <Input
+                value={draft.variant_group_label ?? ''}
+                onChange={(e) => setDraft({ ...draft, variant_group_label: e.target.value })}
+                placeholder="Cancellation Policy"
+                disabled={!(draft.variant_group ?? '').trim()}
+                className="bg-zinc-800 border-zinc-700 text-white text-xs h-9 disabled:opacity-40"
               />
             </div>
           </div>

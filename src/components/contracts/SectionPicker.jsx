@@ -20,7 +20,7 @@ export default function SectionPicker({ sections = [], onChange }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clause_library')
-        .select('id, slug, title, category, content, sort_order, variables, profile_id')
+        .select('id, slug, title, category, content, sort_order, variables, profile_id, variant_group, variant_group_label')
         .eq('is_active', true)
         .order('category')
         .order('sort_order');
@@ -32,6 +32,8 @@ export default function SectionPicker({ sections = [], onChange }) {
         content: c.content,
         variables: Array.isArray(c.variables) ? c.variables : [],
         isCustom: !!c.profile_id,
+        variantGroup: c.variant_group ?? null,
+        variantGroupLabel: c.variant_group_label ?? null,
       }));
     },
   });
@@ -46,24 +48,79 @@ export default function SectionPicker({ sections = [], onChange }) {
     ? library
     : library.filter(s => s.category === activeCategory);
 
+  // Group displayed clauses: standalone rows stay as-is, variant_group
+  // rows collapse into a single entry the picker renders with radios.
+  // Order is preserved by the position of the FIRST variant in the
+  // original sorted library, so admin sort_order still controls layout.
+  const pickerEntries = (() => {
+    const out = [];
+    const groupIdx = new Map();
+    for (const c of displayed) {
+      if (!c.variantGroup) {
+        out.push({ kind: 'single', clause: c });
+        continue;
+      }
+      const existing = groupIdx.get(c.variantGroup);
+      if (existing != null) {
+        out[existing].variants.push(c);
+      } else {
+        groupIdx.set(c.variantGroup, out.length);
+        out.push({
+          kind: 'group',
+          group: c.variantGroup,
+          label: c.variantGroupLabel || c.variantGroup,
+          category: c.category,
+          variants: [c],
+        });
+      }
+    }
+    return out;
+  })();
+
+  // For mutex-within-group selection, we need to know which variant
+  // (if any) of a group is currently in the contract.
+  const selectedByGroup = new Map();
+  for (const s of sections) {
+    const lib = libraryById.get(s.id);
+    if (lib?.variantGroup) selectedByGroup.set(lib.variantGroup, s.id);
+  }
+
+  const buildSectionRow = (section) => {
+    // Snapshot the resolved text + variable values onto the contract.
+    // Once signed this is immutable, so future admin edits to the library
+    // can't change what's on this contract.
+    const variables = Object.fromEntries(
+      (section.variables ?? []).map(v => [v.key, v.default ?? ''])
+    );
+    return {
+      id: section.id,
+      title: section.title,
+      content: substituteTemplate(section.content, variables),
+      template: section.content,
+      variables,
+    };
+  };
+
   const toggleSection = (section) => {
     if (selectedIds.has(section.id)) {
       onChange(sections.filter(s => s.id !== section.id));
     } else {
-      // Snapshot the resolved text + variable values onto the contract.
-      // Once signed this is immutable, so future admin edits to the library
-      // can't change what's on this contract.
-      const variables = Object.fromEntries(
-        (section.variables ?? []).map(v => [v.key, v.default ?? ''])
-      );
-      const resolved = substituteTemplate(section.content, variables);
-      onChange([...sections, {
-        id: section.id,
-        title: section.title,
-        content: resolved,
-        template: section.content,
-        variables,
-      }]);
+      onChange([...sections, buildSectionRow(section)]);
+    }
+  };
+
+  // Variant groups are mutex: picking a new variant replaces the
+  // previously-selected one in place (preserves contract order).
+  const selectVariant = (variant) => {
+    const prevId = selectedByGroup.get(variant.variantGroup);
+    if (prevId === variant.id) {
+      onChange(sections.filter(s => s.id !== variant.id));
+      return;
+    }
+    if (prevId) {
+      onChange(sections.map(s => s.id === prevId ? buildSectionRow(variant) : s));
+    } else {
+      onChange([...sections, buildSectionRow(variant)]);
     }
   };
 
@@ -121,53 +178,134 @@ export default function SectionPicker({ sections = [], onChange }) {
         )}
 
         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-          {displayed.map(section => {
-            const isSelected = selectedIds.has(section.id);
+          {pickerEntries.map(entry => {
+            if (entry.kind === 'single') {
+              const section = entry.clause;
+              const isSelected = selectedIds.has(section.id);
+              return (
+                <div
+                  key={section.id}
+                  className={cn(
+                    "rounded-xl border transition-all",
+                    isSelected
+                      ? "border-violet-500/50 bg-violet-500/10"
+                      : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
+                  )}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <button
+                      onClick={() => toggleSection(section)}
+                      className={cn(
+                        "flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
+                        isSelected
+                          ? "bg-violet-600 border-violet-600"
+                          : "border-zinc-600 hover:border-violet-500"
+                      )}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-white">{section.title}</span>
+                      <Badge className="ml-2 bg-zinc-700/50 text-zinc-400 border-0 text-xs py-0">
+                        {section.category}
+                      </Badge>
+                      {section.isCustom && (
+                        <Badge className="ml-1.5 bg-violet-500/20 text-violet-300 border border-violet-500/30 text-xs py-0">
+                          Yours
+                        </Badge>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setExpanded(prev => ({ ...prev, [section.id]: !prev[section.id] }))}
+                      className="text-zinc-500 hover:text-zinc-300 flex-shrink-0"
+                    >
+                      {expanded[section.id]
+                        ? <ChevronUp className="w-4 h-4" />
+                        : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {expanded[section.id] && (
+                    <div className="px-4 pb-3">
+                      <p className="text-xs text-zinc-400 leading-relaxed">{section.content}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // Variant group: one header, radio-select among variants.
+            const groupKey = `group:${entry.group}`;
+            const selectedVariantId = selectedByGroup.get(entry.group) ?? null;
+            const isGroupOpen = expanded[groupKey];
             return (
               <div
-                key={section.id}
+                key={groupKey}
                 className={cn(
                   "rounded-xl border transition-all",
-                  isSelected
+                  selectedVariantId
                     ? "border-violet-500/50 bg-violet-500/10"
                     : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
                 )}
               >
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <button
-                    onClick={() => toggleSection(section)}
-                    className={cn(
-                      "flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
-                      isSelected
-                        ? "bg-violet-600 border-violet-600"
-                        : "border-zinc-600 hover:border-violet-500"
-                    )}
-                  >
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-white">{section.title}</span>
-                    <Badge className="ml-2 bg-zinc-700/50 text-zinc-400 border-0 text-xs py-0">
-                      {section.category}
-                    </Badge>
-                    {section.isCustom && (
-                      <Badge className="ml-1.5 bg-violet-500/20 text-violet-300 border border-violet-500/30 text-xs py-0">
-                        Yours
-                      </Badge>
-                    )}
+                <button
+                  type="button"
+                  onClick={() => setExpanded(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                >
+                  <div className={cn(
+                    "flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
+                    selectedVariantId
+                      ? "bg-violet-600 border-violet-600"
+                      : "border-zinc-600"
+                  )}>
+                    {selectedVariantId && <Check className="w-3 h-3 text-white" />}
                   </div>
-                  <button
-                    onClick={() => setExpanded(prev => ({ ...prev, [section.id]: !prev[section.id] }))}
-                    className="text-zinc-500 hover:text-zinc-300 flex-shrink-0"
-                  >
-                    {expanded[section.id]
-                      ? <ChevronUp className="w-4 h-4" />
-                      : <ChevronDown className="w-4 h-4" />}
-                  </button>
-                </div>
-                {expanded[section.id] && (
-                  <div className="px-4 pb-3">
-                    <p className="text-xs text-zinc-400 leading-relaxed">{section.content}</p>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-white">{entry.label}</span>
+                    <Badge className="ml-2 bg-zinc-700/50 text-zinc-400 border-0 text-xs py-0">
+                      {entry.category}
+                    </Badge>
+                    <Badge className="ml-1.5 bg-violet-500/10 text-violet-300/80 border border-violet-500/20 text-xs py-0">
+                      Choose one
+                    </Badge>
+                  </div>
+                  <span className="text-zinc-500 flex-shrink-0">
+                    {isGroupOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </span>
+                </button>
+                {isGroupOpen && (
+                  <div className="px-4 pb-3 space-y-2 border-t border-zinc-800 pt-3">
+                    {entry.variants.map(v => {
+                      const isPicked = selectedVariantId === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => selectVariant(v)}
+                          className={cn(
+                            "w-full text-left rounded-lg border p-3 transition-all",
+                            isPicked
+                              ? "border-violet-500 bg-violet-500/10"
+                              : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-600"
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className={cn(
+                              "mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
+                              isPicked
+                                ? "border-violet-500"
+                                : "border-zinc-600"
+                            )}>
+                              {isPicked && <span className="w-2 h-2 rounded-full bg-violet-500" />}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white">{v.title}</p>
+                              <p className="text-xs text-zinc-400 leading-relaxed mt-1">{v.content}</p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
